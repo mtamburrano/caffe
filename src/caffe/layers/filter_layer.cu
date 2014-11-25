@@ -21,7 +21,7 @@ void FilterLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom,
       int data_offset_top = size_single_item*n;
       int data_offset_bottom = size_single_item*offset;
 
-      caffe_copy(size_single_batch, bottom_data+data_offset_bottom,
+      caffe_copy(size_single_item, bottom_data+data_offset_bottom,
           top_data+data_offset_top);
     }
   }
