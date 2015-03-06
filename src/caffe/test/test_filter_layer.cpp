@@ -77,27 +77,18 @@ TYPED_TEST(FilterLayerTest, TestReshape) {
   FilterLayer<Dtype> layer(layer_param);
   layer.SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
   layer.Reshape(this->blob_bottom_vec_, this->blob_top_vec_);
-  layer.Reshape(this->blob_bottom_vec_, this->blob_top_vec_);
   // In the test first and last items should have been filtered
   // so we just expect 2 remaining items
-  EXPECT_EQ(this->blob_top_data_->num(), 2);
-  EXPECT_EQ(this->blob_top_labels_->num(), 2);
-  EXPECT_GT(this->blob_bottom_data_->num(),
-      this->blob_top_data_->num());
-  EXPECT_GT(this->blob_bottom_labels_->num(),
-      this->blob_top_labels_->num());
-  EXPECT_EQ(this->blob_bottom_labels_->channels(),
-      this->blob_top_labels_->channels());
-  EXPECT_EQ(this->blob_bottom_labels_->width(),
-      this->blob_top_labels_->width());
-  EXPECT_EQ(this->blob_bottom_labels_->height(),
-      this->blob_top_labels_->height());
-  EXPECT_EQ(this->blob_bottom_data_->channels(),
-      this->blob_top_data_->channels());
-  EXPECT_EQ(this->blob_bottom_data_->width(),
-      this->blob_top_data_->width());
-  EXPECT_EQ(this->blob_bottom_data_->height(),
-      this->blob_top_data_->height());
+  EXPECT_EQ(this->blob_top_data_->shape(0), 2);
+  EXPECT_EQ(this->blob_top_labels_->shape(0), 2);
+  EXPECT_GT(this->blob_bottom_data_->shape(0),
+      this->blob_top_data_->shape(0));
+  EXPECT_GT(this->blob_bottom_labels_->shape(0),
+      this->blob_top_labels_->shape(0));
+  for (int i = 1; i < this->blob_bottom_labels_->num_axes(); i++) {
+    EXPECT_EQ(this->blob_bottom_labels_->shape(i),
+        this->blob_top_labels_->shape(i));
+  }
 }
 
 TYPED_TEST(FilterLayerTest, TestForward) {
@@ -118,7 +109,7 @@ TYPED_TEST(FilterLayerTest, TestForward) {
       this->blob_bottom_labels_->data_at(2, 0, 0, 0));
 
   int dim = this->blob_top_data_->count() /
-      this->blob_top_data_->num();
+      this->blob_top_data_->shape(0);
   const Dtype* top_data = this->blob_top_data_->cpu_data();
   const Dtype* bottom_data = this->blob_bottom_data_->cpu_data();
   // selector is 0 1 1 0, so we need to compare bottom(1,c,h,w)

@@ -14,7 +14,7 @@ void FilterLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom,
   for (int t = 0; t < top.size(); t++) {
     const Dtype* bottom_data = bottom[t]->gpu_data();
     Dtype* top_data = top[t]->mutable_gpu_data();
-    int dim = bottom[t]->count() / bottom[t]->num();
+    int dim = bottom[t]->count() / bottom[t]->shape(0);
     for (int n = 0; n < new_tops_num; n++) {
       int data_offset_top = top[t]->offset(n);
       int data_offset_bottom =  bottom[t]->offset(indices_to_forward_[n]);
@@ -30,23 +30,23 @@ void FilterLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& top,
   for (int i = 0; i < top.size(); i++) {
     // bottom[last] is the selector and never needs backpropagation
     if (propagate_down[i] && need_back_prop_[i]) {
-      const int dim = top[i]->count() / top[i]->num();
+      const int dim = top[i]->count() / top[i]->shape(0);
       int next_to_backward_offset = 0;
       int batch_offset = 0;
       int data_offset_bottom = 0;
       int data_offset_top = 0;
-      for (int n = 0; n < bottom[i]->num(); n++) {
+      for (int n = 0; n < bottom[i]->shape(0); n++) {
         if (next_to_backward_offset >= indices_to_forward_.size()) {
           // we already visited all items that were been forwarded, so
           // just set to zero remaining ones
           data_offset_bottom = top[i]->offset(n);
-          caffe_gpu_set(dim, Dtype(0),
+          caffe_set(dim, Dtype(0),
               bottom[i]->mutable_gpu_diff() + data_offset_bottom);
         } else {
           batch_offset = indices_to_forward_[next_to_backward_offset];
           data_offset_bottom = top[i]->offset(n);
           if (n != batch_offset) {  // this data was not been forwarded
-            caffe_gpu_set(dim, Dtype(0),
+            caffe_set(dim, Dtype(0),
                 bottom[i]->mutable_gpu_diff() + data_offset_bottom);
           } else {  // this data was been forwarded
             data_offset_top = top[i]->offset(next_to_backward_offset);
