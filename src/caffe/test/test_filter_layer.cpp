@@ -69,11 +69,6 @@ TYPED_TEST_CASE(FilterLayerTest, TestDtypesAndDevices);
 TYPED_TEST(FilterLayerTest, TestReshape) {
   typedef typename TypeParam::Dtype Dtype;
   LayerParameter layer_param;
-  FilterParameter* f_param = layer_param.mutable_filter_param();
-  // we need to forward the data blob
-  f_param->add_need_back_prop(1);
-  // we don't need to forward the labels blob
-  f_param->add_need_back_prop(0);
   FilterLayer<Dtype> layer(layer_param);
   layer.SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
   layer.Reshape(this->blob_bottom_vec_, this->blob_top_vec_);
@@ -94,11 +89,6 @@ TYPED_TEST(FilterLayerTest, TestReshape) {
 TYPED_TEST(FilterLayerTest, TestForward) {
   typedef typename TypeParam::Dtype Dtype;
   LayerParameter layer_param;
-  FilterParameter* f_param = layer_param.mutable_filter_param();
-  // we need to forward the data blob
-  f_param->add_need_back_prop(1);
-  // we don't need to forward the labels blob
-  f_param->add_need_back_prop(0);
   FilterLayer<Dtype> layer(layer_param);
   layer.SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
   layer.Reshape(this->blob_bottom_vec_, this->blob_top_vec_);
@@ -127,11 +117,6 @@ TYPED_TEST(FilterLayerTest, TestForward) {
 TYPED_TEST(FilterLayerTest, TestGradient) {
   typedef typename TypeParam::Dtype Dtype;
   LayerParameter layer_param;
-  FilterParameter* f_param = layer_param.mutable_filter_param();
-  // we need to forward the data blob
-  f_param->add_need_back_prop(1);
-  // we don't need to forward the labels blob
-  f_param->add_need_back_prop(0);
   FilterLayer<Dtype> layer(layer_param);
   GradientChecker<Dtype> checker(1e-2, 1e-3);
   checker.CheckGradientExhaustive(&layer, this->blob_bottom_vec_,

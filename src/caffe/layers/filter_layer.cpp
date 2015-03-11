@@ -12,16 +12,7 @@ void FilterLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top) {
   CHECK_EQ(top.size(), bottom.size()-1) <<
       "Top.size() should be equal to bottom.size() - 1";
-  const FilterParameter& filter_param = this->layer_param_.filter_param();
   first_reshape_ = true;
-  need_back_prop_.clear();
-  std::copy(filter_param.need_back_prop().begin(),
-      filter_param.need_back_prop().end(),
-      std::back_inserter(need_back_prop_));
-  CHECK_NE(0, need_back_prop_.size()) <<
-      "need_back_prop param needs to be specified";
-  CHECK_EQ(top.size(), need_back_prop_.size()) <<
-      "need_back_prop.size() needs to be equal to top.size()";
 }
 
 template <typename Dtype>
@@ -92,7 +83,8 @@ void FilterLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
       const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {
   for (int i = 0; i < top.size(); i++) {
     // bottom[last] is the selector and never needs backpropagation
-    if (propagate_down[i] && need_back_prop_[i]) {
+    // so we can iterate over top vector because top.size() == bottom.size() -1
+    if (propagate_down[i]) {
       const int dim = top[i]->count() / top[i]->shape(0);
       int next_to_backward_offset = 0;
       int batch_offset = 0;

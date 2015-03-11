@@ -241,7 +241,6 @@ class FilterLayer : public Layer<Dtype> {
 
   bool first_reshape_;
   vector<int> indices_to_forward_;
-  vector<int> need_back_prop_;
 };
 
 /**

@@ -29,7 +29,8 @@ void FilterLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& top,
       const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {
   for (int i = 0; i < top.size(); i++) {
     // bottom[last] is the selector and never needs backpropagation
-    if (propagate_down[i] && need_back_prop_[i]) {
+    // so we can iterate over top vector because top.size() == bottom.size() -1
+    if (propagate_down[i]) {
       const int dim = top[i]->count() / top[i]->shape(0);
       int next_to_backward_offset = 0;
       int batch_offset = 0;
