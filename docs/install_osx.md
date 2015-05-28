@@ -10,7 +10,7 @@ In the following, we assume that you're using Anaconda Python and Homebrew.
 
 **CUDA**: Install via the NVIDIA package that includes both CUDA and the bundled driver. **CUDA 7 is strongly suggested.** Older CUDA require `libstdc++` while clang++ is the default compiler and `libc++` the default standard library on OS X 10.9+. This disagreement makes it necessary to change the compilation settings for each of the dependencies. This is prone to error.
 
-**Library Path**: We find that everything compiles successfully if `$LD_LIBRARY_PATH` is not set at all, and `$DYLD_FALLBACK_LIBRARY_PATH` is set to to provide CUDA, Python, and other relevant libraries (e.g. `/usr/local/cuda/lib:$HOME/anaconda/lib:/usr/local/lib:/usr/lib`).
+**Library Path**: We find that everything compiles successfully if `$LD_LIBRARY_PATH` is not set at all, and `$DYLD_FALLBACK_LIBRARY_PATH` is set to provide CUDA, Python, and other relevant libraries (e.g. `/usr/local/cuda/lib:$HOME/anaconda/lib:/usr/local/lib:/usr/lib`).
 In other `ENV` settings, things may not work as expected.
 
 **General dependencies**
@@ -18,7 +18,7 @@ In other `ENV` settings, things may not work as expected.
     brew install --fresh -vd snappy leveldb gflags glog szip lmdb
     # need the homebrew science source for OpenCV and hdf5
     brew tap homebrew/science
-    hdf5 opencv
+    brew install hdf5 opencv
 
 If using Anaconda Python, a modification to the OpenCV formula might be needed
 Do `brew edit opencv` and change the lines that look like the two lines below to exactly the two lines below.
@@ -32,7 +32,7 @@ If using Anaconda Python, HDF5 is bundled and the `hdf5` formula can be skipped.
 
     # with Python pycaffe needs dependencies built from source
     brew install --build-from-source --with-python --fresh -vd protobuf
-    brew install --build-from-source --fresh -vd boost
+    brew install --build-from-source --fresh -vd boost boost-python
     # without Python the usual installation suffices
     brew install protobuf boost
 
@@ -115,7 +115,7 @@ Then, whenever you want to update homebrew, switch back to the master branches, 
     # Update homebrew; hopefully this works without errors!
     brew update
 
-    # Switch back to the caffe branches with the forumlae that you modified earlier
+    # Switch back to the caffe branches with the formulae that you modified earlier
     cd /usr/local
     git rebase master caffe
     # Fix any merge conflicts and commit to caffe branch

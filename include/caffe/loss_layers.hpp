@@ -78,7 +78,14 @@ class AccuracyLayer : public Layer<Dtype> {
     }
   }
 
+  int label_axis_, outer_num_, inner_num_;
+
   int top_k_;
+
+  /// Whether to ignore instances with a certain label.
+  bool has_ignore_label_;
+  /// The label indicating that an instance should be ignored.
+  int ignore_label_;
 };
 
 /**
@@ -597,8 +604,6 @@ class SigmoidCrossEntropyLossLayer : public LossLayer<Dtype> {
  protected:
   /// @copydoc SigmoidCrossEntropyLossLayer
   virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom,
-      const vector<Blob<Dtype>*>& top);
-  virtual void Forward_gpu(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top);
 
   /**
