@@ -29,7 +29,7 @@ void FilterLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& top,
       const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {
   if (propagate_down[bottom.size() - 1]) {
     LOG(FATAL) << this->type()
-               << "Layer cannot backpropagate to filter index inputs";
+                << "Layer cannot backpropagate to filter index inputs";
   }
   for (int i = 0; i < top.size(); i++) {
     // bottom[last] is the selector and never needs backpropagation
