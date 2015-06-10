@@ -56,18 +56,29 @@ void MultiLabelLossLayer<Dtype>::Forward_cpu(
   const int num = bottom[0]->num();
   // Stable version of loss computation from input data
   const Dtype* input_data = bottom[0]->cpu_data();
-  const Dtype* target = bottom[1]->cpu_data();
+  Dtype* target = bottom[1]->mutable_cpu_data();
   Dtype loss = 0;
   for (int i = 0; i < count; ++i) {
     if (target[i] != 0) {
     // Update the loss only if target[i] is not 0
+      if (target[i] != -2)
+      {
       loss -= input_data[i] * ((target[i] > 0) - (input_data[i] >= 0)) -
           log(1 + exp(input_data[i]
                       - 2 * input_data[i] * (input_data[i] >= 0)));
+      }
+/* RIABILITA PER PENALIZZARE 1 e 7
+      else
+      {
+        loss -= input_data[i] * (1 - (input_data[i] < 0)) -
+          log(1 + exp(input_data[i]
+                      - 2 * input_data[i] * (input_data[i] >= 0)));
+      }
+*/
     }
-    if (top.size() >= 1) {
-      top[0]->mutable_cpu_data()[0] = loss / num;
-    }
+  }
+  if (top.size() >= 1) {
+    top[0]->mutable_cpu_data()[0] = loss / num;
   }
 }
 
@@ -75,10 +86,10 @@ template <typename Dtype>
 void MultiLabelLossLayer<Dtype>::Backward_cpu(
     const vector<Blob<Dtype>*>& top, const vector<bool>& propagate_down,
     const vector<Blob<Dtype>*>& bottom) {
-  if (propagate_down[1]) {
+  /*if (propagate_down[1]) {
     LOG(FATAL) << this->type_name()
                << " Layer cannot backpropagate to label inputs.";
-  }
+  }*/
   if (propagate_down[0]) {
     // First, compute the diff
     const int count = bottom[0]->count();
