@@ -48,6 +48,7 @@ void AccuracyLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
   const Dtype* bottom_label = bottom[1]->cpu_data();
   const int dim = bottom[0]->count() / outer_num_;
   const int num_labels = bottom[0]->shape(label_axis_);
+
   vector<Dtype> maxval(top_k_+1);
   vector<int> max_id(top_k_+1);
   int count = 0;
@@ -60,21 +61,42 @@ void AccuracyLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
       }
       DCHECK_GE(label_value, 0);
       DCHECK_LT(label_value, num_labels);
-      // Top-k accuracy
-      std::vector<std::pair<Dtype, int> > bottom_data_vector;
-      for (int k = 0; k < num_labels; ++k) {
-        bottom_data_vector.push_back(std::make_pair(
-            bottom_data[i * dim + k * inner_num_ + j], k));
-      }
-      std::partial_sort(
-          bottom_data_vector.begin(), bottom_data_vector.begin() + top_k_,
-          bottom_data_vector.end(), std::greater<std::pair<Dtype, int> >());
-      // check if true label is in top k predictions
-      for (int k = 0; k < top_k_; k++) {
-        if (bottom_data_vector[k].second == label_value) {
-          ++accuracy;
-          break;
+
+      if(num_labels > 1)
+      {
+        // Top-k accuracy
+        std::vector<std::pair<Dtype, int> > bottom_data_vector;
+        for (int k = 0; k < num_labels; ++k) {
+          bottom_data_vector.push_back(std::make_pair(
+              bottom_data[i * dim + k * inner_num_ + j], k));
         }
+        std::partial_sort(
+            bottom_data_vector.begin(), bottom_data_vector.begin() + top_k_,
+            bottom_data_vector.end(), std::greater<std::pair<Dtype, int> >());
+        // check if true label is in top k predictions
+        for (int k = 0; k < top_k_; k++) {
+          if(num_labels == 1001 && label_value >= 2){
+            if (bottom_data_vector[k].second >= 2) {
+              ++accuracy;
+              break;
+            }
+          }
+          else if (bottom_data_vector[k].second == label_value) {
+            ++accuracy;
+            break;
+          }
+        }
+      }
+      else //CASO SIGMOID_CROSS_ENTROPY_LOSS ->> per funzionare i layer accuracy devono essere attaccati a dei layer sigmoid semplici in phase test
+      {
+        int value;
+        if(bottom_data[i * dim + j] > 0.5)
+          value = 1;
+        else
+          value = 0;
+        if (value == label_value)
+            ++accuracy;
+        
       }
       ++count;
     }
