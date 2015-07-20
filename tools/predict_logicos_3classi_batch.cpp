@@ -464,6 +464,8 @@ int main(int argc, char** argv) {
   int model_number = 60000;
   int model_increment = 500;
   int model_end_number = 110000;
+  float best_accuracy = 0;
+  int best_model_number = 0;
 
   if(!IS_MODEL_PROVIDED)
   {
@@ -594,6 +596,8 @@ int main(int argc, char** argv) {
       printTxtResult("GOOD", good);
       printTxtResult("BAD" , bad);
 
+      float accuracy = num_good / (float) mean_predictions.size();
+
       cout << "THRESHOLD: "<< THRESH << endl;
       cout << "ROTATIONS: "<< batch_size << endl << endl;
 
@@ -604,7 +608,7 @@ int main(int argc, char** argv) {
       cout << "Accuracy SENSORI: " << num_good_sen / (float) (num_good_sen+num_bad_sen)  << endl;
       cout << "Accuracy BACKGROUNDS: " << num_good_bg / (float) (num_good_bg+num_bad_bg) << endl << endl;
       cout << "GOOD/TOTAL: " << num_good << "/"<< mean_predictions.size() << endl;
-      cout << "Accuracy: " << num_good / (float) mean_predictions.size()  << endl;
+      cout << "Accuracy: " << accuracy  << endl;
 
       std::ofstream outfile;
 
@@ -621,12 +625,34 @@ int main(int argc, char** argv) {
       outfile << "Accuracy SENSORI: " << num_good_sen / (float) (num_good_sen+num_bad_sen)  << endl;
       outfile << "Accuracy BACKGROUNDS: " << num_good_bg / (float) (num_good_bg+num_bad_bg) << endl << endl;
       outfile << "GOOD/TOTAL: " << num_good << "/"<< mean_predictions.size() << endl;
-      outfile << "Accuracy: " << num_good / (float) mean_predictions.size()  << endl;
+      outfile << "Accuracy: " << accuracy  << endl;
       outfile << "------------------------------------------------------ " << endl;
       outfile.close();
+
+      if(accuracy > best_accuracy)
+      {
+        best_accuracy= accuracy;
+        best_model_number = model_number;
+      }
     }
     
     delete caffe_test_net;
+
+  }
+
+  if(IS_MODEL_PROVIDED) {
+
+    std::ofstream outfile;
+
+    outfile.open("log.txt", std::ios_base::app);
+    outfile << "#################################################### " << endl;
+    outfile << "MIGLIOR ACCURACY:  "<< best_accuracy << endl;
+    outfile << "MIGLIOR MODEL NUMBER:  "<< best_model_number<< endl;
+    outfile.close();
+
+    cout << "#################################################### " << endl;
+    cout << "MIGLIOR ACCURACY:  "<< best_accuracy << endl;
+    cout << "MIGLIOR MODEL NUMBER:  "<< best_model_number<< endl;
 
   }
 
