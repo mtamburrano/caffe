@@ -17,6 +17,9 @@
 #include "caffe/proto/caffe.pb.h"
 #include "caffe/util/db.hpp"
 
+#include <datasetgenerator/data_generator.hpp>
+#include <opencv2/viz/vizcore.hpp>
+
 namespace caffe {
 
 /**
@@ -239,6 +242,10 @@ class ImageDataLayer : public BasePrefetchingDataLayer<Dtype> {
 
   vector<std::pair<std::string, int> > lines_;
   int lines_id_;
+  vector<cv::Ptr<cv::viz::WMesh> > meshes_;
+  std::pair<std::string, int> sample_image_;
+  DataGenerator data_gen_;
+
 };
 
 /**
