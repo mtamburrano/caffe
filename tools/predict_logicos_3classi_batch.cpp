@@ -403,6 +403,7 @@ int main(int argc, char** argv) {
   if(argc > 7)
     transf = true;
 
+
   bool PREDICT_TXT = false;
   //se in input viene data una directory, leggiamo prendot tutti i path delle directory
   if(image_path.substr(image_path.find_last_of(".") + 1) == "txt")
@@ -457,140 +458,175 @@ int main(int argc, char** argv) {
   Caffe::set_mode(Caffe::GPU);
   int device_id = 0;
   Caffe::SetDevice(device_id);
-  Net<float>* caffe_test_net = new Net<float>(net_proto, caffe::TEST);
-  caffe_test_net->CopyTrainedLayersFrom(pretrained_model);
-  boost::shared_ptr<MemoryDataLayer<float> > memory_data_layer = boost::static_pointer_cast<MemoryDataLayer<float> >(caffe_test_net->layer_by_name("data"));
-  int batch_size = memory_data_layer->batch_size();
 
+  bool IS_MODEL_PROVIDED = false;
+  string provided_model = "/home/manuele/caffe/networks/logicos/pretrained/logicos_2loss_cifarlike_classification_iter_";
+  int model_number = 60000;
+  int model_increment = 500;
+  int model_end_number = 110000;
 
-  //preparo tutti i batches così non devo fare il rotate per ogni forward
-  vector < vector < Mat > > all_rotated_batches;
-  for(int i = 0; i<images.size(); i++) {
-
-    vector<Mat> rotatedBatch;
-    prepareRotatedBatch(images[i],  batch_size, rotatedBatch);
-    all_rotated_batches.push_back(rotatedBatch);
-  }
-
-  vector<vector < Prediction> > global_mean_predictions;
-  vector<Prediction> mean_predictions;
-  for(int i = 0; i<num_forwards; i++) {
-
-    if(i > 0)
-      mean_predictions.clear();
-
-    for(int i = 0; i<images.size(); i++) {
-
-      vector<Mat> rotatedBatch = all_rotated_batches[i];
-
-      vector<Blob<float>*> results = forwardBatch(caffe_test_net, memory_data_layer, rotatedBatch);
-
-      vector<Prediction> predictions;
-      getPredictions(caffe_test_net, batch_size, predictions);
-
-      Prediction meanPrediction;
-      getMeanPrediction( predictions, meanPrediction);
-
-      mean_predictions.push_back(meanPrediction);
-    }
-
-    global_mean_predictions.push_back(mean_predictions);
-  }
-
-  //riordino i prediction per fare le medie tra tutti i forwards
-  if(num_forwards > 1) {
-
-    mean_predictions.clear();
-    getMeanPrediction( global_mean_predictions, mean_predictions);
-  }
-
-
-  int TP;
-  int FP;
-  int TN;
-  int FN;
-  int num_good = 0;
-  int num_good_mis = 0;
-  int num_good_sen = 0;
-  int num_good_bg = 0;
-  int num_bad = 0;
-  int num_bad_mis = 0;
-  int num_bad_sen = 0;
-  int num_bad_bg = 0;
-  // pair< LABEL, pair < path_image, prediction > >
-  vector<pair <int, pair< string, Prediction> > > good;
-  vector<pair <int, pair< string, Prediction> > > bad;
-
-  if(PREDICT_TXT == false)
+  if(!IS_MODEL_PROVIDED)
   {
-    cout << "THRESHOLD: "<< THRESH << endl;
-    cout << "ROTATIONS: "<< batch_size << endl << endl;
-    computePrediction(mean_predictions[0], /*print result*/true);
+    //così verrà eseguito il for solo una volta e solo per il model passato da command line
+    model_number = model_end_number;
   }
   else
   {
-    for(int p = 0; p < mean_predictions.size(); ++p)
-    {
-      int pred_index = computePrediction(mean_predictions[p], /*print result*/false);
+    //resetto il log
+    std::ofstream outfile;
+    outfile.open("log.txt", std::ios_base::app);
+    outfile < "----------INIZIO LOG--------------: ";
+    outfile << endl << endl;
+    outfile.close();
+  }
 
-      if (pred_index == labels[p]){
-        num_good++;
-        if(labels[p] == 0)
-          num_good_mis++;
-        if(labels[p] == 1)
-          num_good_sen++;
-        if(labels[p] == 2)
-          num_good_bg++;
-        pair< string, Prediction> g_p = make_pair(filepaths[p], mean_predictions[p]);
-        pair <int, pair< string, Prediction> > l_g_p =  make_pair(labels[p], g_p);
-        good.push_back(l_g_p);
-      }
-      else
-      {
-        num_bad++;
-        if(labels[p] == 0)
-          num_bad_mis++;
-        if(labels[p] == 1)
-          num_bad_sen++;
-        if(labels[p] == 2)
-          num_bad_bg++;
-        pair< string, Prediction> b_p = make_pair(filepaths[p], mean_predictions[p]);
-        pair <int, pair< string, Prediction> > l_b_p =  make_pair(labels[p], b_p);
-        bad.push_back(l_b_p);
-      }
+  for(; model_number <= model_end_number; model_number+=model_increment)
+  {
+    if(IS_MODEL_PROVIDED)
+      pretrained_model =provided_model + i2s(model_number) + ".caffemodel";
+
+    Net<float>* caffe_test_net = new Net<float>(net_proto, caffe::TEST);
+    caffe_test_net->CopyTrainedLayersFrom(pretrained_model);
+    boost::shared_ptr<MemoryDataLayer<float> > memory_data_layer = boost::static_pointer_cast<MemoryDataLayer<float> >(caffe_test_net->layer_by_name("data"));
+    int batch_size = memory_data_layer->batch_size();
+
+
+    //preparo tutti i batches così non devo fare il rotate per ogni forward
+    vector < vector < Mat > > all_rotated_batches;
+    for(int i = 0; i<images.size(); i++) {
+
+      vector<Mat> rotatedBatch;
+      prepareRotatedBatch(images[i],  batch_size, rotatedBatch);
+      all_rotated_batches.push_back(rotatedBatch);
     }
 
-    printTxtResult("GOOD", good);
-    printTxtResult("BAD" , bad);
-    
-    cout << "THRESHOLD: "<< THRESH << endl;
-    cout << "ROTATIONS: "<< batch_size << endl << endl;
+    vector<vector < Prediction> > global_mean_predictions;
+    vector<Prediction> mean_predictions;
+    for(int i = 0; i<num_forwards; i++) {
 
-    cout << "GOOD MISURATORI / TOTALI: "<< num_good_mis << "/" << (num_good_mis+num_bad_mis) << endl;
-    cout << "GOOD SENSORI / TOTALI: " << num_good_sen << "/" << (num_good_sen+num_bad_sen) << endl;
-    cout << "GOOD BACKGROUNDS / TOTALI "<< num_good_bg << "/" << (num_good_bg+num_bad_bg) << endl;
-    cout << "Accuracy MISURATORI: " << num_good_mis / (float) (num_good_mis+num_bad_mis)  << endl;
-    cout << "Accuracy SENSORI: " << num_good_sen / (float) (num_good_sen+num_bad_sen)  << endl;
-    cout << "Accuracy BACKGROUNDS: " << num_good_bg / (float) (num_good_bg+num_bad_bg) << endl << endl;
-    cout << "GOOD/TOTAL: " << num_good << "/"<< mean_predictions.size() << endl;
-    cout << "Accuracy: " << num_good / (float) mean_predictions.size()  << endl;
-    
-    std::ofstream outfile;
+      if(i > 0)
+        mean_predictions.clear();
 
-    outfile.open("log.txt", std::ios_base::app);
-    outfile << "#################################################### " << endl;
-    outfile << "THRESHOLD: "<< THRESH << endl;
-    outfile << "ROTATIONS: "<< batch_size << endl << endl;
-    outfile << "GOOD MISURATORI / TOTALI: "<< num_good_mis << "/" << (num_good_mis+num_bad_mis) << endl;
-    outfile << "GOOD SENSORI / TOTALI: " << num_good_sen << "/" << (num_good_sen+num_bad_sen) << endl;
-    outfile << "GOOD BACKGROUNDS / TOTALI "<< num_good_bg << "/" << (num_good_bg+num_bad_bg) << endl;
-    outfile << "Accuracy MISURATORI: " << num_good_mis / (float) (num_good_mis+num_bad_mis)  << endl;
-    outfile << "Accuracy SENSORI: " << num_good_sen / (float) (num_good_sen+num_bad_sen)  << endl;
-    outfile << "Accuracy BACKGROUNDS: " << num_good_bg / (float) (num_good_bg+num_bad_bg) << endl << endl;
-    outfile << "GOOD/TOTAL: " << num_good << "/"<< mean_predictions.size() << endl;
-    outfile << "Accuracy: " << num_good / (float) mean_predictions.size()  << endl;
-    outfile << "------------------------------------------------------ " << endl;
-    outfile.close();
+      for(int i = 0; i<images.size(); i++) {
+
+        vector<Mat> rotatedBatch = all_rotated_batches[i];
+
+        vector<Blob<float>*> results = forwardBatch(caffe_test_net, memory_data_layer, rotatedBatch);
+
+        vector<Prediction> predictions;
+        getPredictions(caffe_test_net, batch_size, predictions);
+
+        Prediction meanPrediction;
+        getMeanPrediction( predictions, meanPrediction);
+
+        mean_predictions.push_back(meanPrediction);
+      }
+
+      global_mean_predictions.push_back(mean_predictions);
+    }
+
+    //riordino i prediction per fare le medie tra tutti i forwards
+    if(num_forwards > 1) {
+
+      mean_predictions.clear();
+      getMeanPrediction( global_mean_predictions, mean_predictions);
+    }
+
+
+    int TP;
+    int FP;
+    int TN;
+    int FN;
+    int num_good = 0;
+    int num_good_mis = 0;
+    int num_good_sen = 0;
+    int num_good_bg = 0;
+    int num_bad = 0;
+    int num_bad_mis = 0;
+    int num_bad_sen = 0;
+    int num_bad_bg = 0;
+    // pair< LABEL, pair < path_image, prediction > >
+    vector<pair <int, pair< string, Prediction> > > good;
+    vector<pair <int, pair< string, Prediction> > > bad;
+
+    if(PREDICT_TXT == false)
+    {
+      cout << "THRESHOLD: "<< THRESH << endl;
+      cout << "ROTATIONS: "<< batch_size << endl << endl;
+      computePrediction(mean_predictions[0], /*print result*/true);
+    }
+    else
+    {
+
+
+
+      for(int p = 0; p < mean_predictions.size(); ++p)
+      {
+        int pred_index = computePrediction(mean_predictions[p], /*print result*/false);
+
+        if (pred_index == labels[p]){
+          num_good++;
+          if(labels[p] == 0)
+            num_good_mis++;
+          if(labels[p] == 1)
+            num_good_sen++;
+          if(labels[p] == 2)
+            num_good_bg++;
+          pair< string, Prediction> g_p = make_pair(filepaths[p], mean_predictions[p]);
+          pair <int, pair< string, Prediction> > l_g_p =  make_pair(labels[p], g_p);
+          good.push_back(l_g_p);
+        }
+        else
+        {
+          num_bad++;
+          if(labels[p] == 0)
+            num_bad_mis++;
+          if(labels[p] == 1)
+            num_bad_sen++;
+          if(labels[p] == 2)
+            num_bad_bg++;
+          pair< string, Prediction> b_p = make_pair(filepaths[p], mean_predictions[p]);
+          pair <int, pair< string, Prediction> > l_b_p =  make_pair(labels[p], b_p);
+          bad.push_back(l_b_p);
+        }
+      }
+
+      printTxtResult("GOOD", good);
+      printTxtResult("BAD" , bad);
+
+      cout << "THRESHOLD: "<< THRESH << endl;
+      cout << "ROTATIONS: "<< batch_size << endl << endl;
+
+      cout << "GOOD MISURATORI / TOTALI: "<< num_good_mis << "/" << (num_good_mis+num_bad_mis) << endl;
+      cout << "GOOD SENSORI / TOTALI: " << num_good_sen << "/" << (num_good_sen+num_bad_sen) << endl;
+      cout << "GOOD BACKGROUNDS / TOTALI "<< num_good_bg << "/" << (num_good_bg+num_bad_bg) << endl;
+      cout << "Accuracy MISURATORI: " << num_good_mis / (float) (num_good_mis+num_bad_mis)  << endl;
+      cout << "Accuracy SENSORI: " << num_good_sen / (float) (num_good_sen+num_bad_sen)  << endl;
+      cout << "Accuracy BACKGROUNDS: " << num_good_bg / (float) (num_good_bg+num_bad_bg) << endl << endl;
+      cout << "GOOD/TOTAL: " << num_good << "/"<< mean_predictions.size() << endl;
+      cout << "Accuracy: " << num_good / (float) mean_predictions.size()  << endl;
+
+      std::ofstream outfile;
+
+      outfile.open("log.txt", std::ios_base::app);
+      outfile << "#################################################### " << endl;
+      if(IS_MODEL_PROVIDED)
+        outfile << "MODEL NUMBER: "<< model_number << endl;
+      outfile << "THRESHOLD: "<< THRESH << endl;
+      outfile << "ROTATIONS: "<< batch_size << endl << endl;
+      outfile << "GOOD MISURATORI / TOTALI: "<< num_good_mis << "/" << (num_good_mis+num_bad_mis) << endl;
+      outfile << "GOOD SENSORI / TOTALI: " << num_good_sen << "/" << (num_good_sen+num_bad_sen) << endl;
+      outfile << "GOOD BACKGROUNDS / TOTALI "<< num_good_bg << "/" << (num_good_bg+num_bad_bg) << endl;
+      outfile << "Accuracy MISURATORI: " << num_good_mis / (float) (num_good_mis+num_bad_mis)  << endl;
+      outfile << "Accuracy SENSORI: " << num_good_sen / (float) (num_good_sen+num_bad_sen)  << endl;
+      outfile << "Accuracy BACKGROUNDS: " << num_good_bg / (float) (num_good_bg+num_bad_bg) << endl << endl;
+      outfile << "GOOD/TOTAL: " << num_good << "/"<< mean_predictions.size() << endl;
+      outfile << "Accuracy: " << num_good / (float) mean_predictions.size()  << endl;
+      outfile << "------------------------------------------------------ " << endl;
+      outfile.close();
+    }
+    
+    delete caffe_test_net;
 
   }
 
@@ -627,7 +663,7 @@ int main(int argc, char** argv) {
   imwrite("flippata_verticale.png", image_flip_v);*/
 
 
-  delete caffe_test_net;
+
 
 
    return 0;
