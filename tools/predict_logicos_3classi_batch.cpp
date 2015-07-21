@@ -476,7 +476,7 @@ int main(int argc, char** argv) {
   {
     //resetto il log
     std::ofstream outfile;
-    outfile.open("log.txt", std::ios_base::app);
+    outfile.open("log.txt", std::ios_base::trunc);
     outfile < "----------INIZIO LOG--------------: ";
     outfile << endl << endl;
     outfile.close();
