@@ -1,0 +1,46 @@
+name: "CaffeNet"
+layers {
+  name: "input"
+  type: MEMORY_DATA
+  top: "data"
+  top: "label"
+
+  memory_data_param {
+    batch_size: 210
+    channels: 3
+    height: 250
+    width: 250
+  }  
+}
+layers {
+  name: "conv1"
+  type: CONVOLUTION
+  bottom: "data"
+  top: "conv1"
+  convolution_param {
+    num_output: 96
+    kernel_size: 5
+    stride: 2
+  }
+}
+layers {
+  name: "ip1"
+  type: INNER_PRODUCT
+  bottom: "conv1"
+  top: "ip1"
+  inner_product_param {
+    num_output: 2
+    weight_filler {
+      type: "xavier"
+    }
+    bias_filler {
+      type: "constant"
+    }
+  }
+}
+layers {
+  name: "prob"
+  type: SOFTMAX_LOSS
+  bottom: "ip1"
+  bottom: "label"
+}
