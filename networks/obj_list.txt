@@ -1,0 +1,4 @@
+/home/manuele/src/caffe/data/obj/misuratore_open_bis.obj 0
+/home/manuele/src/caffe/data/obj/model_texture_flip.jpg 0
+/home/manuele/src/caffe/data/obj/sensor2r.obj 1
+/home/manuele/src/caffe/data/obj/model_texture_flip2.jpg 1
