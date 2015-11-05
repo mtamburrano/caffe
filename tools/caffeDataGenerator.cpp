@@ -167,7 +167,7 @@ class Generator3D : public caffe::MemoryDataLayer<float>::MatGenerator {
  public:
      caffe::shared_ptr<caffe::Net<float> > _net;
      int _channels;
-     unique_ptr<caffe::DataGenerator> _datagenerator;
+     std::unique_ptr<caffe::DataGenerator> _datagenerator;
 
     ~Generator3D (){}
 
@@ -177,7 +177,7 @@ class Generator3D : public caffe::MemoryDataLayer<float>::MatGenerator {
       _net = net;
       _channels = channels;
       //Data generator parameters
-      _datagenerator = unique_ptr<caffe::AutoveloxDataGenerator>(new caffe::AutoveloxDataGenerator());
+      _datagenerator = std::unique_ptr<caffe::AutoveloxDataGenerator>(new caffe::AutoveloxDataGenerator());
       _datagenerator->init();
     }
 
@@ -234,7 +234,7 @@ int train() {
       "but not both.";
 
   caffe::SolverParameter solver_param;
-  caffe::ReadProtoFromTextFileOrDie(FLAGS_solver, &solver_param);
+  caffe::ReadSolverParamsFromTextFileOrDie(FLAGS_solver, &solver_param);
 
   // If the gpus flag is not provided, allow the mode and device to be set
   // in the solver prototxt.
@@ -270,7 +270,7 @@ int train() {
         GetRequestedAction(FLAGS_sighup_effect));
 
   caffe::shared_ptr<caffe::Solver<float> >
-    solver(caffe::GetSolver<float>(solver_param));
+      solver(caffe::SolverRegistry<float>::CreateSolver(solver_param));
 
   solver->SetActionFunction(signal_handler.GetActionFunction());
 
