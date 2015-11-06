@@ -314,6 +314,8 @@ class MemoryDataLayer : public BaseDataLayer<Dtype> {
 #ifdef USE_OPENCV
   virtual void AddMatVector(const vector<cv::Mat>& mat_vector,
       const vector<int>& labels);
+  virtual void AddMatVectorMultilabel(const vector<cv::Mat>& mat_vector,
+      const vector< vector < int > >& labels);
 #endif  // USE_OPENCV
 
   /**
@@ -339,7 +341,7 @@ class MemoryDataLayer : public BaseDataLayer<Dtype> {
     generate_datum_cb_ = boost::shared_ptr<DatumGenerator>();
     generate_raw_pointer_cb_ = boost::shared_ptr<RawPointerGenerator>();
   }
-  int batch_size_, channels_, height_, width_, size_;
+  int batch_size_, channels_, height_, width_, data_size_, label_size_;
   Dtype* data_;
   Dtype* labels_;
   int n_;
