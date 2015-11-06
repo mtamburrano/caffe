@@ -165,7 +165,7 @@ void MemoryDataLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
   top[0]->Reshape(batch_size_, channels_, height_, width_);
   top[1]->Reshape(batch_size_, label_size_, 1, 1);
   top[0]->set_cpu_data(data_ + pos_ * data_size_);
-  top[1]->set_cpu_data(labels_ + pos_);
+  top[1]->set_cpu_data(labels_ + pos_ * label_size_);
   pos_ = (pos_ + batch_size_) % n_;
   if (pos_ == 0)
     has_new_data_ = false;
