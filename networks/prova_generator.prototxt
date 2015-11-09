@@ -6,10 +6,10 @@ layers {
   top: "label"
 
   memory_data_param {
-    batch_size: 210
-    channels: 3
-    height: 250
-    width: 250
+    batch_size: 12
+    channels: 1
+    height: 16
+    width: 83
   }  
 }
 layers {
@@ -29,7 +29,7 @@ layers {
   bottom: "conv1"
   top: "ip1"
   inner_product_param {
-    num_output: 2
+    num_output: 32
     weight_filler {
       type: "xavier"
     }

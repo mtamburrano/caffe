@@ -139,9 +139,9 @@ template <typename Dtype>
 void MemoryDataLayer<Dtype>::HandleGenerators() {
   if (generate_cv_mat_labels_cb_) {
     std::vector<cv::Mat> mats;
-    std::vector<int> labels;
+    std::vector< std::vector <int> > labels;
     generate_cv_mat_labels_cb_->generate(batch_size_, &mats, &labels);
-    AddMatVector(mats, labels);
+    AddMatVectorMultilabel(mats, labels);
   } else if (generate_datum_cb_) {
     std::vector<Datum> data;
     generate_datum_cb_->generate(batch_size_, &data);

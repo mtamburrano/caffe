@@ -275,7 +275,7 @@ class MemoryDataLayer : public BaseDataLayer<Dtype> {
   class MatGenerator {
    public:
     virtual void generate(int batch_size, std::vector<cv::Mat> * mats,
-                          std::vector<int> * labels) = 0;
+                          std::vector<std::vector < int > > * labels) = 0;
     virtual ~MatGenerator() {}
   };
 
