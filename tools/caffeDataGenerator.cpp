@@ -167,7 +167,7 @@ class Generator3D : public caffe::MemoryDataLayer<float>::MatGenerator {
  public:
      caffe::shared_ptr<caffe::Net<float> > _net;
      int _channels;
-     std::unique_ptr<caffe::DataGenerator> _datagenerator;
+     std::unique_ptr<caffe::AutoveloxDataGenerator> _datagenerator;
 
     ~Generator3D (){}
 
@@ -182,7 +182,7 @@ class Generator3D : public caffe::MemoryDataLayer<float>::MatGenerator {
     }
 
     void generate(int batch_size, std::vector<cv::Mat> * mats,
-                          std::vector<int> * labels) {
+                          std::vector<std::vector < int> > * labels) {
 
 
         for (int ni = 0; ni < batch_size; ++ni) {
@@ -195,13 +195,9 @@ class Generator3D : public caffe::MemoryDataLayer<float>::MatGenerator {
           _datagenerator->getLabel(label_string);
 
           ////////CONVERTI LABEL_STRING TO lABEL_INT////////////
-          label_int.push_back(0);
-          label_int.push_back(1);
-          label_int.push_back(2);
-          label_int.push_back(3);
-          label_int.push_back(4);
-          label_int.push_back(5);
-          label_int.push_back(6);
+          for(int nc = 0; nc < _datagenerator->getNumberOfChars(); ++nc) {
+            label_int.push_back(_datagenerator->getClass(label_string[nc]));
+          }
 
           ///////////////////////<------>//////////////////////
 
@@ -214,10 +210,10 @@ class Generator3D : public caffe::MemoryDataLayer<float>::MatGenerator {
 
           //cv::imshow("generated",renderMat);
           //LOG(INFO) << "label: "<< label<<endl;
-          //waitKey();
+          //cv::waitKey();
 
           mats->push_back(renderMat);
-          labels->push_back(0);
+          labels->push_back(label_int);
           // go to the next iter
 
         }
@@ -278,7 +274,8 @@ int train() {
         boost::static_pointer_cast<caffe::MemoryDataLayer<float> >(solver->net()->layer_by_name("input"));
     caffe::shared_ptr<Generator3D> mat_gen = (caffe::shared_ptr<Generator3D>) new Generator3D(
                                                                 solver->net(),
-                                                                memory_data_layer->batch_size());
+                                                                1);
+    memory_data_layer->SetMatGenerator(mat_gen);
 
   if (FLAGS_snapshot.size()) {
     LOG(INFO) << "Resuming from " << FLAGS_snapshot;
