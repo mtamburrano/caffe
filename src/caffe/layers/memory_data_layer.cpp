@@ -140,8 +140,31 @@ void MemoryDataLayer<Dtype>::set_batch_size(int new_size) {
 }
 
 template <typename Dtype>
+void MemoryDataLayer<Dtype>::HandleGenerators() {
+  if (generate_cv_mat_labels_cb_) {
+    std::vector<cv::Mat> mats;
+    std::vector<std::vector<int> > labels;
+    generate_cv_mat_labels_cb_->generate(batch_size_, &mats, &labels);
+    AddMatVectorMultilabel(mats, labels);
+  } else if (generate_datum_cb_) {
+    std::vector<Datum> data;
+    generate_datum_cb_->generate(batch_size_, &data);
+    AddDatumVector(data);
+  } else if (generate_raw_pointer_cb_) {
+    Dtype * data;
+    Dtype * labels;
+    int n;
+    generate_raw_pointer_cb_->generate(batch_size_, &data, &labels, &n);
+    Reset(data, labels, n);
+  }
+}
+
+template <typename Dtype>
 void MemoryDataLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top) {
+  if ((!data_ || !has_new_data_)) {
+    HandleGenerators();
+  }
   CHECK(data_) << "MemoryDataLayer needs to be initalized by calling Reset";
   top[0]->Reshape(batch_size_, channels_, height_, width_);
   top[1]->Reshape(batch_size_, num_labels_, 1, 1);
