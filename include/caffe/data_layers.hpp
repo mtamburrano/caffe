@@ -341,7 +341,7 @@ class MemoryDataLayer : public BaseDataLayer<Dtype> {
     generate_datum_cb_ = boost::shared_ptr<DatumGenerator>();
     generate_raw_pointer_cb_ = boost::shared_ptr<RawPointerGenerator>();
   }
-  int batch_size_, channels_, height_, width_, data_size_, label_size_;
+  int batch_size_, channels_, height_, width_, data_size_, label_size_, num_labels_;
   Dtype* data_;
   Dtype* labels_;
   int n_;

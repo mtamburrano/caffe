@@ -208,9 +208,9 @@ class Generator3D : public caffe::MemoryDataLayer<float>::MatGenerator {
                     "The rendered image has " << renderMat.channels() << " channels but we want " <<_channels;
           ///DEBUG
 
-          //cv::imshow("generated",renderMat);
-          //LOG(INFO) << "label: "<< label<<endl;
-          //cv::waitKey();
+          cv::imshow("generated",renderMat);
+          LOG(INFO) << "label: "<< label<<endl;
+          ::waitKey();
 
           mats->push_back(renderMat);
           labels->push_back(label_int);
