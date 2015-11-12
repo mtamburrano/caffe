@@ -209,8 +209,11 @@ class Generator3D : public caffe::MemoryDataLayer<float>::MatGenerator {
           ///DEBUG
 
           cv::imshow("generated",renderMat);
-          LOG(INFO) << "label: "<< label<<endl;
-          ::waitKey();
+          for (int ls = 0; ls < label_string.size(); ++ls) {
+            std::cout << "label: "<< label_string[ls]<< " ";
+          }
+          std::cout<<std::endl;
+          cv::waitKey();
 
           mats->push_back(renderMat);
           labels->push_back(label_int);

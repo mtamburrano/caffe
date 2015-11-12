@@ -1,6 +1,7 @@
 # Collect source files
 
-find_package(VTK REQUIRED)
+find_package(VTK 6.3.0 EXACT REQUIRED COMPONENTS
+    vtkRenderingOpenGL2 vtkRenderingContextOpenGL2)
 include(${VTK_USE_FILE})
 
 file(GLOB_RECURSE srcs ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
