@@ -171,7 +171,8 @@ LIBRARIES += glog gflags protobuf leveldb snappy \
 	boost_filesystem \
 	hdf5_serial_hl hdf5_serial \
 	opencv_core opencv_highgui opencv_imgproc opencv_imgcodecs pthread \
-	datagenerator autovelox
+	datagenerator autovelox \
+	vtkRenderingOpenGL2 vtkCommonExecutionModel vtkCommonDataModel vtkCommonMath vtkCommonCore vtksys vtkCommonMisc vtkCommonSystem vtkCommonTransforms vtkImagingHybrid vtkIOImage vtkDICOMParser vtkIOCore vtkzlib vtkmetaio vtkjpeg vtkpng vtktiff vtkImagingCore vtkRenderingCore vtkCommonColor vtkFiltersExtraction vtkFiltersCore vtkFiltersGeneral vtkCommonComputationalGeometry vtkFiltersStatistics vtkImagingFourier vtkalglib vtkFiltersGeometry vtkFiltersSources vtkglew vtkRenderingContextOpenGL2 vtkRenderingContext2D vtkRenderingFreeType vtkfreetype
 PYTHON_LIBRARIES := boost_python python2.7
 WARNINGS := -Wall -Wno-sign-compare
 

@@ -26,6 +26,18 @@ namespace bp = boost::python;
 #include <datasetgenerator/AutoveloxDataGenerator.hpp>
 //////////////////////////////////////////////
 
+//////calculate time//////////
+#include <time.h>
+
+#ifndef SYSOUT_F
+#define SYSOUT_F(f, ...)      _RPT1( 0, f, __VA_ARGS__ ) // For Visual studio
+#endif
+
+#ifndef speedtest__             
+#define speedtest__(data)   for (long blockTime = NULL; (blockTime == NULL ? (blockTime = clock()) != NULL : false); std::cout<<data<<" "<<((double) (clock() - blockTime) / CLOCKS_PER_SEC)<<std::endl)
+#endif
+//////calculate time//////////
+
 using caffe::Blob;
 using caffe::Caffe;
 using caffe::Net;
@@ -183,45 +195,59 @@ class Generator3D : public caffe::MemoryDataLayer<float>::MatGenerator {
 
     void generate(int batch_size, std::vector<cv::Mat> * mats,
                           std::vector<std::vector < int> > * labels) {
+        
+        //#pragma omp parallel for
+        //speedtest__("BATCH GENERATION Speed: ")
+        {
+          for (int ni = 0; ni < batch_size; ++ni) {
+            
+            cv::Mat renderMat;
+            std::vector<string> label_string;
+            std::vector<int> label_int;
 
+            //speedtest__("Render Speed: ")
+            {
+              _datagenerator->render(renderMat);
+            }
+            _datagenerator->getLabel(label_string);
 
-        for (int ni = 0; ni < batch_size; ++ni) {
+            ////////CONVERTI LABEL_STRING TO lABEL_INT////////////
+            for(int nc = 0; nc < _datagenerator->getNumberOfChars(); ++nc) {
+              label_int.push_back(_datagenerator->getClass(label_string[nc]));
+            }
+            /*
+            ///////////////FAKE RENDER///////////////
+            cv::Mat renderMat = cv::Mat::zeros(16,83, CV_8UC1);
+            std::vector<string> label_string;
+            std::vector<int> label_int;
 
-          cv::Mat renderMat;
-          std::vector<string> label_string;
-          std::vector<int> label_int;
+            
+            for(int nc = 0; nc < _datagenerator->getNumberOfChars(); ++nc) {
+              label_int.push_back(nc);
+            }
 
-          _datagenerator->render(renderMat);
-          _datagenerator->getLabel(label_string);
+            ///////////////////////<------>//////////////////////
+            */
+            if(_channels == 1 && renderMat.channels() > 1){
+              cv::cvtColor(renderMat, renderMat, CV_BGR2GRAY);
+            }
+            CHECK_EQ(renderMat.channels(), _channels) <<
+                      "The rendered image has " << renderMat.channels() << " channels but we want " <<_channels;
+            ///DEBUG
 
-          ////////CONVERTI LABEL_STRING TO lABEL_INT////////////
-          for(int nc = 0; nc < _datagenerator->getNumberOfChars(); ++nc) {
-            label_int.push_back(_datagenerator->getClass(label_string[nc]));
+            /*cv::imshow("generated",renderMat);
+            for (int ls = 0; ls < label_string.size(); ++ls) {
+              std::cout << "label: "<< label_string[ls]<< "="<<label_int[ls]<<" ";
+            }
+            std::cout<<std::endl;
+            cv::waitKey();*/
+
+            mats->push_back(renderMat);
+            labels->push_back(label_int);
+            // go to the next iter
           }
-
-          ///////////////////////<------>//////////////////////
-
-          if(_channels == 1 && renderMat.channels() > 1){
-            cv::cvtColor(renderMat, renderMat, CV_BGR2GRAY);
-          }
-          CHECK_EQ(renderMat.channels(), _channels) <<
-                    "The rendered image has " << renderMat.channels() << " channels but we want " <<_channels;
-          ///DEBUG
-
-          cv::imshow("generated",renderMat);
-          for (int ls = 0; ls < label_string.size(); ++ls) {
-            std::cout << "label: "<< label_string[ls]<< " ";
-          }
-          std::cout<<std::endl;
-          cv::waitKey();
-
-          mats->push_back(renderMat);
-          labels->push_back(label_int);
-          // go to the next iter
-
         }
-
-
+        
     };
 };
 
@@ -272,14 +298,21 @@ int train() {
       solver(caffe::SolverRegistry<float>::CreateSolver(solver_param));
 
   solver->SetActionFunction(signal_handler.GetActionFunction());
-
+  
   caffe::shared_ptr<caffe::MemoryDataLayer<float> > memory_data_layer =
         boost::static_pointer_cast<caffe::MemoryDataLayer<float> >(solver->net()->layer_by_name("input"));
     caffe::shared_ptr<Generator3D> mat_gen = (caffe::shared_ptr<Generator3D>) new Generator3D(
                                                                 solver->net(),
                                                                 1);
     memory_data_layer->SetMatGenerator(mat_gen);
-
+    /*
+  caffe::shared_ptr<caffe::MemoryDataLayer<float> > memory_data_layer_test =
+        boost::static_pointer_cast<caffe::MemoryDataLayer<float> >(solver->test_nets()[0]->layer_by_name("input_test"));
+    caffe::shared_ptr<Generator3D> mat_gen_test = (caffe::shared_ptr<Generator3D>) new Generator3D(
+                                                                solver->test_nets()[0],
+                                                                1);
+    memory_data_layer_test->SetMatGenerator(mat_gen_test);
+*/
   if (FLAGS_snapshot.size()) {
     LOG(INFO) << "Resuming from " << FLAGS_snapshot;
     solver->Restore(FLAGS_snapshot.c_str());
