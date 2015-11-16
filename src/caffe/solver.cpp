@@ -8,6 +8,18 @@
 #include "caffe/util/io.hpp"
 #include "caffe/util/upgrade_proto.hpp"
 
+//////calculate time//////////
+#include <time.h>
+
+#ifndef SYSOUT_F
+#define SYSOUT_F(f, ...)      _RPT1( 0, f, __VA_ARGS__ ) // For Visual studio
+#endif
+
+#ifndef speedtest__             
+#define speedtest__(data)   for (long blockTime = NULL; (blockTime == NULL ? (blockTime = clock()) != NULL : false); LOG(INFO)<<data<<" "<<((double) (clock() - blockTime) / CLOCKS_PER_SEC))
+#endif
+//////calculate time//////////
+
 namespace caffe {
 
 template<typename Dtype>
@@ -218,8 +230,11 @@ void Solver<Dtype>::Step(int iters) {
     net_->set_debug_info(display && param_.debug_info());
     // accumulate the loss and gradient
     Dtype loss = 0;
-    for (int i = 0; i < param_.iter_size(); ++i) {
-      loss += net_->ForwardBackward(bottom_vec);
+    //speedtest__("1 iterazione COMPLESSIVA")
+    {
+      for (int i = 0; i < param_.iter_size(); ++i) {
+        loss += net_->ForwardBackward(bottom_vec);
+      }
     }
     loss /= param_.iter_size();
     // average the loss across iterations for smoothed reporting

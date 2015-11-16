@@ -23,6 +23,11 @@ foreach(source ${srcs})
   if(name MATCHES "caffe.bin")
     set_target_properties(${name} PROPERTIES OUTPUT_NAME caffe)
   endif()
+  
+  # restore output name without suffix
+  if(name MATCHES "caffeDataGenerator.bin")
+    set_target_properties(${name} PROPERTIES OUTPUT_NAME caffeDataGenerator)
+  endif()
 
   # Install
   install(TARGETS ${name} DESTINATION bin)
