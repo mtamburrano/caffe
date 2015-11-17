@@ -12,7 +12,7 @@ foreach(source ${srcs})
 
   # target
   add_executable(${name} ${source})
-  target_link_libraries(${name} ${Caffe_LINK} datagenerator autovelox ${VTK_LIBRARIES})
+  target_link_libraries(${name} ${Caffe_LINK} datagenerator autovelox)
   caffe_default_properties(${name})
 
   # set back RUNTIME_OUTPUT_DIRECTORY
@@ -27,6 +27,11 @@ foreach(source ${srcs})
   # restore output name without suffix
   if(name MATCHES "caffeDataGenerator.bin")
     set_target_properties(${name} PROPERTIES OUTPUT_NAME caffeDataGenerator)
+  endif()
+  
+  # restore output name without suffix
+  if(name MATCHES "lmdbGenerator.bin")
+    set_target_properties(${name} PROPERTIES OUTPUT_NAME lmdbGenerator)
   endif()
 
   # Install

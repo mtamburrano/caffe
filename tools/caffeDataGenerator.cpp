@@ -201,13 +201,13 @@ class Generator3D : public caffe::MemoryDataLayer<float>::MatGenerator {
         {
           for (int ni = 0; ni < batch_size; ++ni) {
             
-            cv::Mat renderMat;
+            std::vector<cv::Mat> renderMats;
             std::vector<string> label_string;
             std::vector<int> label_int;
 
             //speedtest__("Render Speed: ")
             {
-              _datagenerator->render(renderMat);
+              _datagenerator->render(renderMats);
             }
             _datagenerator->getLabel(label_string);
 
@@ -228,21 +228,21 @@ class Generator3D : public caffe::MemoryDataLayer<float>::MatGenerator {
 
             ///////////////////////<------>//////////////////////
             */
-            if(_channels == 1 && renderMat.channels() > 1){
-              cv::cvtColor(renderMat, renderMat, CV_BGR2GRAY);
+            if(_channels == 1 && renderMats[0].channels() > 1){
+              cv::cvtColor(renderMats[0], renderMats[0], CV_BGR2GRAY);
             }
-            CHECK_EQ(renderMat.channels(), _channels) <<
-                      "The rendered image has " << renderMat.channels() << " channels but we want " <<_channels;
+            CHECK_EQ(renderMats[0].channels(), _channels) <<
+                      "The rendered image has " << renderMats[0].channels() << " channels but we want " <<_channels;
             ///DEBUG
 
-            /*cv::imshow("generated",renderMat);
+            cv::imshow("generated",renderMats[0]);
             for (int ls = 0; ls < label_string.size(); ++ls) {
               std::cout << "label: "<< label_string[ls]<< "="<<label_int[ls]<<" ";
             }
             std::cout<<std::endl;
-            cv::waitKey();*/
+            cv::waitKey();
 
-            mats->push_back(renderMat);
+            mats->push_back(renderMats[0]);
             labels->push_back(label_int);
             // go to the next iter
           }
