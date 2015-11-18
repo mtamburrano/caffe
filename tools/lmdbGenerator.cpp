@@ -14,6 +14,8 @@
 #include <utility>
 #include <vector>
 #include <sstream>
+#include <signal.h>
+#include <atomic>
 
 #include "boost/scoped_ptr.hpp"
 #include "boost/filesystem.hpp"
@@ -46,10 +48,20 @@ DEFINE_bool(gray, false,
     "When this option is on, treat images as grayscale ones");
 DEFINE_string(backend, "lmdb",
         "The backend {lmdb, leveldb} for storing the result");
-DEFINE_int32(resize_width, 0, "Width images are resized to");
-DEFINE_int32(resize_height, 0, "Height images are resized to");
 DEFINE_bool(check_size, true,
     "When this option is on, check that all the datum have the same size");
+
+
+volatile sig_atomic_t quit = false;
+
+void got_signal(int s)
+{
+  if(quit == SIGINT)
+  {
+    std::cout << "segnale di stop ricevuto, commito gli ultimi update prima di chiudere" << std::endl;
+    quit = s;
+  }
+}
 
 int s2i(std::string s)
 {
@@ -146,7 +158,8 @@ void read(string db_data_name, string db_label_name, int num_read_images)
   cv::Mat img;
   Datum* datum_data = new Datum();
   Datum* datum_label = new Datum();
-  for(int ni; ni < num_read_images; ++ni)
+  int index_db = 0;
+  for(int ni = 0; ni < num_read_images; ++ni)
   {
 
     datum_data->ParseFromString(cursor_data->value());
@@ -155,7 +168,7 @@ void read(string db_data_name, string db_label_name, int num_read_images)
     //mostro l'immagine e la label
     datumToCVMat(datum_data, img);
 
-    std::cout << "Label: ";
+    std::cout << index_db << ") Label: ";
     for(int d = 0; d < datum_label->float_data_size(); ++d)
     {
       int fromClass = static_cast<int>(datum_label->float_data(d));
@@ -167,10 +180,12 @@ void read(string db_data_name, string db_label_name, int num_read_images)
     // go to the next iter
     cursor_data->Next();
     cursor_label->Next();
+    index_db++;
     if (!cursor_data->valid()) {
       DLOG(INFO) << "Restarting data prefetching from start.";
       cursor_data->SeekToFirst();
       cursor_label->SeekToFirst();
+      index_db = 0;
     }
   }
   delete datum_data;
@@ -223,7 +238,7 @@ void create(string db_data_name, string db_label_name, int num_generated_images)
   //creo immagini e label
   std::vector<cv::Mat> renderMats;
   std::vector<std::string> label_string;
-  for(int ngi; ngi < num_generated_images; ++ngi)
+  for(int ngi = 0; ngi < num_generated_images; ++ngi)
   {
     if(renderMats.size() > 0) {
       renderMats.clear();
@@ -241,9 +256,6 @@ void create(string db_data_name, string db_label_name, int num_generated_images)
 
 
   LOG(INFO) << "A total of " << lines.size() << " images.";
-
-  int resize_height = std::max<int>(0, FLAGS_resize_height);
-  int resize_width = std::max<int>(0, FLAGS_resize_width);
 
   // Creo un DB per i dati ed uno per le label
   scoped_ptr<db::DB> db_data(db::GetDB(FLAGS_backend));
@@ -265,10 +277,6 @@ void create(string db_data_name, string db_label_name, int num_generated_images)
 
   for (int line_id = 0; line_id < lines.size(); ++line_id) {
     bool status;
-    /*status = ReadImageToDatum(root_folder + lines[line_id].first,
-        lines[line_id].second, resize_height, resize_width, is_color,
-        enc, &datum);
-    if (status == false) continue;*/
 
     //creo il Datum per l'immagine
     CVMatToDatum(lines[line_id].first, &datum_data);
@@ -325,129 +333,10 @@ void create(string db_data_name, string db_label_name, int num_generated_images)
         ///UPDATE
 
 ///////////////////////////////////
-void update(string db_data_name, string db_label_name, int num_generated_images)
+void update(string db_data_name, string db_label_name, int num_images_replaced)
 {
-  //controllo se il database già esiste
-    boost::filesystem::path path_db(db_data_name);
-    if(boost::filesystem::exists(path_db))
-    {
-      std::string input;
-      std::cout<<"il database \""<<db_data_name<<"\" già esiste, vuoi sovrascriverlo? (y/n)"<<std::endl;
-      if (!std::getline(std::cin, input)) { /* error, abort! */ }
-      if(input == "y")
-      {
-        boost::filesystem::remove_all(db_data_name);
-        boost::filesystem::remove_all(db_label_name);
-      }
-      else
-      {
-        std::cout<<"creazione annullata"<<std::endl;
-        return;
-      }
-    }
-
-    std::unique_ptr<caffe::AutoveloxDataGenerator> datagenerator;
-    datagenerator = std::unique_ptr<caffe::AutoveloxDataGenerator>(new caffe::AutoveloxDataGenerator());
-    datagenerator->init();
-
-    //vettore che contiene le coppie mat,label, dove la label è un vettore di stringhe
-    // (ogni stringa rappresenta però un intero, ad esempio "3")
-    std::vector<std::pair<cv::Mat, std::vector<std::string> > > lines;
-
-    //creo immagini e label
-    std::vector<cv::Mat> renderMats;
-    std::vector<std::string> label_string;
-    for(int ngi; ngi < num_generated_images; ++ngi)
-    {
-      if(renderMats.size() > 0) {
-        renderMats.clear();
-        label_string.clear();
-      }
-      datagenerator->render(renderMats);
-      datagenerator->getLabel(label_string);
-
-      lines.push_back(std::make_pair(renderMats[0], label_string));
-    }
 
 
-    LOG(INFO) << "A total of " << lines.size() << " images.";
-
-    int resize_height = std::max<int>(0, FLAGS_resize_height);
-    int resize_width = std::max<int>(0, FLAGS_resize_width);
-
-    // Creo un DB per i dati ed uno per le label
-    scoped_ptr<db::DB> db_data(db::GetDB(FLAGS_backend));
-    scoped_ptr<db::DB> db_label(db::GetDB(FLAGS_backend));
-
-    db_data->Open(db_data_name.c_str(), db::NEW);
-    db_label->Open(db_label_name.c_str(), db::NEW);
-    scoped_ptr<db::Transaction> txn_data(db_data->NewTransaction());
-    scoped_ptr<db::Transaction> txn_label(db_label->NewTransaction());
-
-    // Storing to db
-    Datum datum_data;
-    Datum datum_label;
-    int count = 0;
-    const int kMaxKeyLength = 256;
-    char key_cstr[kMaxKeyLength];
-    int data_size = 0;
-    bool data_size_initialized = false;
-
-    for (int line_id = 0; line_id < lines.size(); ++line_id) {
-      bool status;
-      /*status = ReadImageToDatum(root_folder + lines[line_id].first,
-          lines[line_id].second, resize_height, resize_width, is_color,
-          enc, &datum);
-      if (status == false) continue;*/
-      cv::imshow("prima", lines[line_id].first);
-      cv::waitKey();
-
-      //creo il Datum per l'immagine
-      CVMatToDatum(lines[line_id].first, &datum_data);
-      //inserisco una fake label perchè non mi interessa, dovrò creare un database solo per le label dopo
-      datum_data.set_label(-17);
-
-      //creo il Datum per la label
-      std::vector<int> label_int;
-      std::vector<std::string> label_string = lines[line_id].second;
-
-      for(int nc = 0; nc < datagenerator->getNumberOfChars(); ++nc) {
-        label_int.push_back(datagenerator->getClass(label_string[nc]));
-      }
-      vectorIntToDatum(label_int, &datum_label);
-      //inserisco una fake label perchè non mi interessa la label della label °O°
-      datum_label.set_label(-18);
-
-
-      // sequential
-      int length = snprintf(key_cstr, kMaxKeyLength, "%08d_%s", line_id,
-              vectorToString(lines[line_id].second).c_str());
-
-      // Put in db
-      string out;
-      CHECK(datum_data.SerializeToString(&out));
-      CHECK(datum_label.SerializeToString(&out));
-      std::cout << "key_cstr: "<<key_cstr<<std::endl;
-      std::cout << "length: "<<length<<std::endl<<std::endl;
-      txn_data->Put(string(key_cstr, length), out);
-      txn_label->Put(string(key_cstr, length), out);
-
-      if (++count % 1000 == 0) {
-        // Commit db
-        txn_data->Commit();
-        txn_data.reset(db_data->NewTransaction());
-        txn_label->Commit();
-        txn_label.reset(db_label->NewTransaction());
-        LOG(INFO) << "Processed " << count << " files.";
-      }
-    }
-    // write the last batch
-    if (count % 1000 != 0) {
-      txn_data->Commit();
-      txn_label->Commit();
-      LOG(INFO) << "Processed " << count << " files.";
-    }
-    return;
 }
 
 
