@@ -207,6 +207,9 @@ void create(string db_data_name, string db_label_name, int num_generated_images)
       std::cout<<"creazione annullata"<<std::endl;
       return;
     }
+  }else
+  {
+    std::cout << "Verranno creati i db \""<<db_data_name<<"\" e \""<<db_label_name<<"\""<<std::endl;
   }
 
   std::unique_ptr<caffe::AutoveloxDataGenerator> datagenerator;
@@ -230,6 +233,10 @@ void create(string db_data_name, string db_label_name, int num_generated_images)
     datagenerator->getLabel(label_string);
 
     lines.push_back(std::make_pair(renderMats[0], label_string));
+
+    if( ngi % 1000 == 0) {
+      LOG(INFO) << "Generated " << ngi << " images.";
+    }
   }
 
 
