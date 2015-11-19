@@ -16,9 +16,13 @@ void LMDB::Open(const string& source, Mode mode) {
     CHECK_EQ(mkdir(source.c_str(), 0744), 0) << "mkdir " << source << "failed";
   }
   int flags = 0;
+
+  LOG(INFO) << "WARNING: IL DATABASE VIENE APERTO FORZATAMENTE CON MDB_NOLOCK PER CONSENTIRE L'UPDATE ";
+  flags |= MDB_NOLOCK;
   if (mode == READ) {
     flags = MDB_RDONLY | MDB_NOTLS;
   }
+
   int rc = mdb_env_open(mdb_env_, source.c_str(), flags, 0664);
 #ifndef ALLOW_LMDB_NOLOCK
   MDB_CHECK(rc);
