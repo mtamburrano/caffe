@@ -141,6 +141,8 @@ std::string readDatumLabelValue(const Datum* datum_label, std::unique_ptr<caffe:
 
         ///READ
 
+      //vengono lette num_read_images. Se num_read_images > delle immagini del database, ricomincia dall'inizio
+
 ///////////////////////////////////
 
 
@@ -159,14 +161,14 @@ void read(string db_data_name, string db_label_name, int num_read_images)
   datagenerator->init();
 
   // Leggo dai DB dati e label
-  scoped_ptr<db::LMDB> db_data(new db::LMDB());
-  scoped_ptr<db::LMDB> db_label(new db::LMDB());
+  scoped_ptr<db::DB> db_data(db::GetDB(FLAGS_backend));
+  scoped_ptr<db::DB> db_label(db::GetDB(FLAGS_backend));
 
   db_data->Open(db_data_name.c_str(), db::READ);
   db_label->Open(db_label_name.c_str(), db::READ);
 
-  shared_ptr<db::LMDBCursor> cursor_data(db_data->NewCursor());
-  shared_ptr<db::LMDBCursor> cursor_label(db_label->NewCursor());
+  shared_ptr<db::Cursor> cursor_data(db_data->NewCursor());
+  shared_ptr<db::Cursor> cursor_label(db_label->NewCursor());
 
   // Reading from to db
   cv::Mat img;
@@ -208,6 +210,8 @@ void read(string db_data_name, string db_label_name, int num_read_images)
 ////////////////////////////////////
 
         ///CREATE
+
+    //vengono create num_generated_images immagini
 
 ///////////////////////////////////
 
@@ -267,13 +271,13 @@ void create(string db_data_name, string db_label_name, int num_generated_images)
   LOG(INFO) << "A total of " << lines.size() << " images.";
 
   // Creo un DB per i dati ed uno per le label
-  scoped_ptr<db::LMDB> db_data(new db::LMDB());
-  scoped_ptr<db::LMDB> db_label(new db::LMDB());
+  scoped_ptr<db::DB> db_data(db::GetDB(FLAGS_backend));
+  scoped_ptr<db::DB> db_label(db::GetDB(FLAGS_backend));
 
   db_data->Open(db_data_name.c_str(), db::NEW);
   db_label->Open(db_label_name.c_str(), db::NEW);
-  scoped_ptr<db::LMDBTransaction> txn_data(db_data->NewTransaction());
-  scoped_ptr<db::LMDBTransaction> txn_label(db_label->NewTransaction());
+  scoped_ptr<db::Transaction> txn_data(db_data->NewTransaction());
+  scoped_ptr<db::Transaction> txn_label(db_label->NewTransaction());
 
   // Storing to db
   Datum datum_data;
@@ -341,6 +345,8 @@ void create(string db_data_name, string db_label_name, int num_generated_images)
 
         ///UPDATE TOT ALLA VOLTA
 
+        //vengono modificate num_images_replaced_at_once alla volta
+
 ///////////////////////////////////
 void update(string db_data_name, string db_label_name, int num_images_replaced_at_once)
 {
@@ -364,8 +370,8 @@ void update(string db_data_name, string db_label_name, int num_images_replaced_a
   sigaction(SIGINT, &sigIntHandler, NULL);
 
   // Apro un DB per i dati ed uno per le label
-  scoped_ptr<db::LMDB> db_data(new db::LMDB());
-  scoped_ptr<db::LMDB> db_label(new db::LMDB());
+  scoped_ptr<db::DB> db_data(db::GetDB(FLAGS_backend));
+  scoped_ptr<db::DB> db_label(db::GetDB(FLAGS_backend));
 
   db_data->Open(db_data_name.c_str(), db::WRITE);
   db_label->Open(db_label_name.c_str(), db::WRITE);
@@ -379,8 +385,8 @@ void update(string db_data_name, string db_label_name, int num_images_replaced_a
   int data_size = 0;
   bool data_size_initialized = false;
 
-  shared_ptr<db::LMDBCursor> cursor_data(db_data->NewCursor());
-  shared_ptr<db::LMDBCursor> cursor_label(db_label->NewCursor());
+  shared_ptr<db::Cursor> cursor_data(db_data->NewCursor());
+  shared_ptr<db::Cursor> cursor_label(db_label->NewCursor());
   int index_db = 0;
   bool need_reset = false;
 
@@ -394,8 +400,8 @@ void update(string db_data_name, string db_label_name, int num_images_replaced_a
     std::vector<cv::Mat> renderMats;
     std::vector<std::string> label_string;
 
-    scoped_ptr<db::LMDBTransaction> txn_data(db_data->NewTransaction());
-    scoped_ptr<db::LMDBTransaction> txn_label(db_label->NewTransaction());
+    scoped_ptr<db::Transaction> txn_data(db_data->NewTransaction());
+    scoped_ptr<db::Transaction> txn_label(db_label->NewTransaction());
 
 
     for(int ngi = 0; ngi < num_images_replaced_at_once; ++ngi)
@@ -520,8 +526,8 @@ void update(string db_data_name, string db_label_name, int num_images_replaced)
   sigaction(SIGINT, &sigIntHandler, NULL);
 
   // Apro un DB per i dati ed uno per le label
-  scoped_ptr<db::LMDB> db_data(new db::LMDB());
-  scoped_ptr<db::LMDB> db_label(new db::LMDB());
+  scoped_ptr<db::DB> db_data(db::GetDB(FLAGS_backend));
+  scoped_ptr<db::DB> db_label(db::GetDB(FLAGS_backend));
 
   db_data->Open(db_data_name.c_str(), db::WRITE);
   db_label->Open(db_label_name.c_str(), db::WRITE);
@@ -535,11 +541,11 @@ void update(string db_data_name, string db_label_name, int num_images_replaced)
   int data_size = 0;
   bool data_size_initialized = false;
 
-  shared_ptr<db::LMDBCursor> cursor_data(db_data->NewCursor());
-  shared_ptr<db::LMDBCursor> cursor_label(db_label->NewCursor());
+  shared_ptr<db::Cursor> cursor_data(db_data->NewCursor());
+  shared_ptr<db::Cursor> cursor_label(db_label->NewCursor());
 
-  scoped_ptr<db::LMDBTransaction> txn_data(db_data->NewTransaction());
-  scoped_ptr<db::LMDBTransaction> txn_label(db_label->NewTransaction());
+  scoped_ptr<db::Transaction> txn_data(db_data->NewTransaction());
+  scoped_ptr<db::Transaction> txn_label(db_label->NewTransaction());
   while(true)
   {
     //vettore che contiene le coppie mat,label, dove la label è un vettore di stringhe
@@ -684,14 +690,17 @@ int main(int argc, char** argv) {
 
   if(action == "create")
   {
+    //vengono create num_images_int immagini
     create(db_data_name, db_label_name, num_images_int);
   }
   else if(action == "update")
   {
+    //vengono modificate num_images_int immagini alla volta
     update(db_data_name, db_label_name, num_images_int);
   }
   else if(action == "read")
   {
+    //vengono lette num_images_int. Se num_images_int > delle immagini del database, ricomincia dall'inizio
     read(db_data_name, db_label_name, num_images_int);
   }
 
