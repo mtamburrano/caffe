@@ -21,7 +21,10 @@ void LMDB::Open(const string& source, Mode mode) {
   flags |= MDB_NOLOCK;
   if (mode == READ) {
     flags = MDB_RDONLY | MDB_NOTLS;
-  }
+    LOG(INFO) << "REEEEEEEAD: " << mode_transaction_;
+    mode_transaction_ = MDB_RDONLY;
+  }else
+  mode_transaction_ = 0;
 
   int rc = mdb_env_open(mdb_env_, source.c_str(), flags, 0664);
 #ifndef ALLOW_LMDB_NOLOCK
@@ -53,7 +56,7 @@ LMDBCursor* LMDB::NewCursor() {
 
 LMDBTransaction* LMDB::NewTransaction() {
   MDB_txn* mdb_txn;
-  MDB_CHECK(mdb_txn_begin(mdb_env_, NULL, 0, &mdb_txn));
+  MDB_CHECK(mdb_txn_begin(mdb_env_, NULL, mode_transaction_, &mdb_txn));
   MDB_CHECK(mdb_dbi_open(mdb_txn, NULL, 0, &mdb_dbi_));
   return new LMDBTransaction(&mdb_dbi_, mdb_txn);
 }
@@ -65,6 +68,20 @@ void LMDBTransaction::Put(const string& key, const string& value) {
   mdb_value.mv_data = const_cast<char*>(value.data());
   mdb_value.mv_size = value.size();
   MDB_CHECK(mdb_put(mdb_txn_, *mdb_dbi_, &mdb_key, &mdb_value, 0));
+}
+
+void LMDBTransaction::Get(string& key, string& value) {
+  LOG(INFO)<< "KEY: "<<key;
+  MDB_val mdb_key, mdb_value;
+  mdb_key.mv_data = const_cast<char*>(key.data());
+  mdb_key.mv_size = key.size();
+  mdb_value.mv_data = const_cast<char*>(value.data());
+  mdb_value.mv_size = value.size();
+  MDB_CHECK(mdb_get(mdb_txn_, *mdb_dbi_, &mdb_key, &mdb_value));
+  key = string(static_cast<const char*>(mdb_key.mv_data),
+               mdb_key.mv_size);
+  value = string(static_cast<const char*>(mdb_value.mv_data),
+                 mdb_value.mv_size);
 }
 
 }  // namespace db
