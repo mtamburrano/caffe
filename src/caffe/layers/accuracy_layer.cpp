@@ -48,6 +48,7 @@ template <typename Dtype>
 void AccuracyLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
     const vector<Blob<Dtype>*>& top) {
   Dtype accuracy = 0;
+  Dtype multi_task_accuracy = 0;
   const Dtype* bottom_data = bottom[0]->cpu_data();
   const Dtype* bottom_label = bottom[1]->cpu_data();
   const int dim = bottom[0]->count() / outer_num_;
@@ -59,7 +60,11 @@ void AccuracyLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
     caffe_set(top[1]->count(), Dtype(0), top[1]->mutable_cpu_data());
   }
   int count = 0;
-  for (int i = 0; i < outer_num_; ++i) {
+  for (int i = 0; i < outer_num_; ++i)
+  {
+    //l'accuracy per questo item viene inizializzatad 1, viene posta a 0 se
+    //  se viene sbagliata la predict di una qualsiasi delle classi
+    Dtype single_item_multi_task_accuracy = 1;
     for (int j = 0; j < inner_num_; ++j) {
       const int label_value =
           static_cast<int>(bottom_label[i * inner_num_ + j]);
@@ -85,11 +90,18 @@ void AccuracyLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
           if (top.size() > 1) ++top[1]->mutable_cpu_data()[label_value];
           break;
         }
+        else {
+          single_item_multi_task_accuracy = 0;
+        }
+
       }
       ++count;
     }
+    multi_task_accuracy += single_item_multi_task_accuracy;
+
   }
 
+  LOG(INFO) << "MULTITASK Accuracy: " << multi_task_accuracy / outer_num_;
   // LOG(INFO) << "Accuracy: " << accuracy;
   top[0]->mutable_cpu_data()[0] = accuracy / count;
   if (top.size() > 1) {
