@@ -16,6 +16,7 @@ class Cursor {
   virtual ~Cursor() { }
   virtual void SeekToFirst() = 0;
   virtual void Next() = 0;
+  virtual void Renew() = 0;
   virtual string key() = 0;
   virtual string value() = 0;
   virtual bool valid() = 0;
@@ -41,6 +42,8 @@ class DB {
   virtual void Close() = 0;
   virtual Cursor* NewCursor() = 0;
   virtual Transaction* NewTransaction() = 0;
+  virtual int GetSize() = 0;
+  virtual void PrintStats() = 0;
 
   DISABLE_COPY_AND_ASSIGN(DB);
 };

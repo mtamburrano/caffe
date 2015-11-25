@@ -45,12 +45,10 @@ using namespace caffe;  // NOLINT(build/namespaces)
 using std::pair;
 using boost::scoped_ptr;
 
-DEFINE_bool(gray, false,
+DEFINE_bool(gray, true,
     "When this option is on, treat images as grayscale ones");
 DEFINE_string(backend, "lmdb",
         "The backend {lmdb, leveldb} for storing the result");
-DEFINE_bool(check_size, true,
-    "When this option is on, check that all the datum have the same size");
 
 
 volatile sig_atomic_t quit = 0;
@@ -137,6 +135,8 @@ std::string readDatumLabelValue(const Datum* datum_label, std::unique_ptr<caffe:
   return label_value;
 }
 
+
+
 ////////////////////////////////////
 
         ///READ
@@ -161,101 +161,17 @@ void read(string db_data_name, string db_label_name, int num_read_images)
   datagenerator->init();
 
   // Leggo dai DB dati e label
-  scoped_ptr<db::LMDB> db_data(new db::LMDB());
-  scoped_ptr<db::LMDB> db_label(new db::LMDB());
+  scoped_ptr<db::DB> db_data(db::GetDB(FLAGS_backend));
+  scoped_ptr<db::DB> db_label(db::GetDB(FLAGS_backend));
 
   db_data->Open(db_data_name.c_str(), db::READ);
   db_label->Open(db_label_name.c_str(), db::READ);
 
-  shared_ptr<db::LMDBCursor> cursor_data(db_data->NewCursor());
-  int size_db = 0;
-  while(cursor_data->valid())
-  {
-    size_db++;
-    cursor_data->Next();
-  }
+  int db_size = db_data->GetSize();
+  std::cout << "DB SIZE: "<<db_size<<std::endl;
 
-  // Reading from to db
-  cv::Mat img;
-  Datum* datum_data = new Datum();
-  Datum* datum_label = new Datum();
-  const int kMaxKeyLength = 256;
-  char key_cstr[kMaxKeyLength];
-  int index_db = 0;
-  scoped_ptr<db::LMDBTransaction> txn_data(db_data->NewTransaction());
-  scoped_ptr<db::LMDBTransaction> txn_label(db_label->NewTransaction());
-
-  for(int ni = 0; ni < num_read_images; ++ni)
-  {
-
-    // sequential
-    int length = snprintf(key_cstr, kMaxKeyLength, "%09d_%s", index_db, "key");
-    string out_data;
-    string out_label;
-    string key = string(key_cstr, length);
-    txn_data->Get(key, out_data);
-    txn_label->Get(key, out_label);
-
-    txn_data.reset(db_data->NewTransaction());
-    txn_label.reset(db_label->NewTransaction());
-
-    datum_data->ParseFromString(out_data);
-    datum_label->ParseFromString(out_label);
-
-    //mostro l'immagine e la label
-    datumToCVMat(datum_data, img);
-    std::string label_value = readDatumLabelValue(datum_label, &datagenerator);
-    std::cout << index_db << ") Label: " << label_value << std::endl;
-    //cv::imshow("img", img);
-    //cv::waitKey();
-
-    // go to the next iter
-    index_db++;
-    if (index_db >= size_db) {
-      DLOG(INFO) << "Restarting data prefetching from start.";
-      index_db = 0;
-    }
-  }
-  delete datum_data;
-  delete datum_label;
-
-}
-
-////////////////////////////////////
-
-/*
-////////////////////////////////////
-
-        ///READ
-
-      //vengono lette num_read_images. Se num_read_images > delle immagini del database, ricomincia dall'inizio
-
-///////////////////////////////////
-
-
-void read(string db_data_name, string db_label_name, int num_read_images)
-{
-  //controllo se il database già esiste
-  boost::filesystem::path path_db(db_data_name);
-  if(!boost::filesystem::exists(path_db))
-  {
-    std::cout<<"il database \""<<db_data_name<<"\" non esiste, che leggo?"<<std::endl;
-    return;
-  }
-
-  std::unique_ptr<caffe::AutoveloxDataGenerator> datagenerator;
-  datagenerator = std::unique_ptr<caffe::AutoveloxDataGenerator>(new caffe::AutoveloxDataGenerator());
-  datagenerator->init();
-
-  // Leggo dai DB dati e label
-  scoped_ptr<db::LMDB> db_data(new db::LMDB());
-  scoped_ptr<db::LMDB> db_label(new db::LMDB());
-
-  db_data->Open(db_data_name.c_str(), db::READ);
-  db_label->Open(db_label_name.c_str(), db::READ);
-
-  shared_ptr<db::LMDBCursor> cursor_data(db_data->NewCursor());
-  shared_ptr<db::LMDBCursor> cursor_label(db_label->NewCursor());
+  shared_ptr<db::Cursor> cursor_data(db_data->NewCursor());
+  shared_ptr<db::Cursor> cursor_label(db_label->NewCursor());
 
   // Reading from to db
   cv::Mat img;
@@ -272,13 +188,17 @@ void read(string db_data_name, string db_label_name, int num_read_images)
     datumToCVMat(datum_data, img);
     std::string label_value = readDatumLabelValue(datum_label, &datagenerator);
     std::cout << index_db << ") Label: " << label_value << std::endl;
-    //cv::imshow("img", img);
-    //cv::waitKey();
+    cv::imshow("img", img);
+    cv::waitKey();
 
     // go to the next iter
+
+    cursor_data->Renew();
+    cursor_label->Renew();
     cursor_data->Next();
     cursor_label->Next();
     index_db++;
+
     if (!cursor_data->valid()) {
       DLOG(INFO) << "Restarting data prefetching from start.";
       cursor_data->SeekToFirst();
@@ -286,13 +206,15 @@ void read(string db_data_name, string db_label_name, int num_read_images)
       index_db = 0;
     }
   }
+  std::cout << "DB SIZE: "<<db_size<<std::endl;
+
   delete datum_data;
   delete datum_label;
 
 }
 
 ////////////////////////////////////
-*/
+
 
 ////////////////////////////////////
 
@@ -358,13 +280,13 @@ void create(string db_data_name, string db_label_name, int num_generated_images)
   LOG(INFO) << "A total of " << lines.size() << " images.";
 
   // Creo un DB per i dati ed uno per le label
-  scoped_ptr<db::LMDB> db_data(new db::LMDB());
-  scoped_ptr<db::LMDB> db_label(new db::LMDB());
+  scoped_ptr<db::DB> db_data(db::GetDB(FLAGS_backend));
+  scoped_ptr<db::DB> db_label(db::GetDB(FLAGS_backend));
 
   db_data->Open(db_data_name.c_str(), db::NEW);
   db_label->Open(db_label_name.c_str(), db::NEW);
-  scoped_ptr<db::LMDBTransaction> txn_data(db_data->NewTransaction());
-  scoped_ptr<db::LMDBTransaction> txn_label(db_label->NewTransaction());
+  scoped_ptr<db::Transaction> txn_data(db_data->NewTransaction());
+  scoped_ptr<db::Transaction> txn_label(db_label->NewTransaction());
 
   // Storing to db
   Datum datum_data;
@@ -435,19 +357,6 @@ void create(string db_data_name, string db_label_name, int num_generated_images)
         //vengono modificate num_images_replaced_at_once alla volta
 
 ///////////////////////////////////
-template <typename Dtype>
-class UpdateClass : public InternalThread {
- public:
-  static const int PREFETCH_COUNT = 3;
- protected:
-   virtual void InternalThreadEntry();
-
-   Batch<Dtype> prefetch_[PREFETCH_COUNT];
-   BlockingQueue<Batch<Dtype>*> prefetch_free_;
-   BlockingQueue<Batch<Dtype>*> prefetch_full_;
-};
-
-
 
 void update(string db_data_name, string db_label_name, int num_images_replaced_at_once)
 {
@@ -471,8 +380,8 @@ void update(string db_data_name, string db_label_name, int num_images_replaced_a
   sigaction(SIGINT, &sigIntHandler, NULL);
 
   // Apro un DB per i dati ed uno per le label
-  scoped_ptr<db::LMDB> db_data(new db::LMDB());
-  scoped_ptr<db::LMDB> db_label(new db::LMDB());
+  scoped_ptr<db::DB> db_data(db::GetDB(FLAGS_backend));
+  scoped_ptr<db::DB> db_label(db::GetDB(FLAGS_backend));
 
   db_data->Open(db_data_name.c_str(), db::WRITE);
   db_label->Open(db_label_name.c_str(), db::WRITE);
@@ -486,10 +395,17 @@ void update(string db_data_name, string db_label_name, int num_images_replaced_a
   int data_size = 0;
   bool data_size_initialized = false;
 
-  //shared_ptr<db::LMDBCursor> cursor_data(db_data->NewCursor());
-  //shared_ptr<db::LMDBCursor> cursor_label(db_label->NewCursor());
+  //shared_ptr<db::Cursor> cursor_data(db_data->NewCursor());
+  //shared_ptr<db::Cursor> cursor_label(db_label->NewCursor());
   int index_db = 0;
   bool need_reset = false;
+
+  int db_size = db_data->GetSize();
+
+  scoped_ptr<db::Transaction> txn_data(db_data->NewTransaction());
+  scoped_ptr<db::Transaction> txn_label(db_label->NewTransaction());
+
+  int cycles_done = 0;
 
   while(true)
   {
@@ -500,10 +416,6 @@ void update(string db_data_name, string db_label_name, int num_images_replaced_a
     //creo immagini e label
     std::vector<cv::Mat> renderMats;
     std::vector<std::string> label_string;
-
-    scoped_ptr<db::LMDBTransaction> txn_data(db_data->NewTransaction());
-    scoped_ptr<db::LMDBTransaction> txn_label(db_label->NewTransaction());
-
 
     for(int ngi = 0; ngi < num_images_replaced_at_once; ++ngi)
     {
@@ -540,19 +452,6 @@ void update(string db_data_name, string db_label_name, int num_images_replaced_a
       CHECK(datum_data.SerializeToString(&out_data));
       CHECK(datum_label.SerializeToString(&out_label));
 
-      //Datum old_label;
-      //old_label.ParseFromString(cursor_label->value());
-      //std::string old_label_value = readDatumLabelValue(&old_label, &datagenerator);
-      std::cout << "Updating "<<key_cstr<<" using : "<<vectorToString(label_string)<<std::endl;
-
-      //la chiave è ignorata dalla replace, poichè sostituisce solo il value
-      // dell'elemento corrente a cui punta il cursore
-
-
-//      cursor_data->Replace(key_cstr, out_data);
-  //    cursor_label->Replace(key_cstr, out_label);
-
-
       txn_data->Put(string(key_cstr, length), out_data);
       txn_label->Put(string(key_cstr, length), out_label);
 
@@ -560,13 +459,10 @@ void update(string db_data_name, string db_label_name, int num_images_replaced_a
       //cv::waitKey();
 
       index_db++;
-      if (index_db == 10) {
-        //DLOG(INFO) << "Restarting data prefetching from start.";
-        //cursor_data->SeekToFirst();
-        //cursor_label->SeekToFirst();
+      if (index_db >= db_size) {
         index_db = 0;
-        need_reset = true;
-        std::cout << "NEED RESET" << std::endl;
+        cycles_done++;
+        std::cout << "CICLO COMPLETATO" << std::endl;
       }
 
     }
@@ -575,11 +471,8 @@ void update(string db_data_name, string db_label_name, int num_images_replaced_a
     txn_data.reset(db_data->NewTransaction());
     txn_label->Commit();
     txn_label.reset(db_label->NewTransaction());
-    std::cout <<std::endl<< "COMMITTED "<<std::endl<<std::endl;
-
-    //se il cursore è tornato all'inizio durante le sostituzioni, allora va resettato ancora dopo
-    // il commit, poichè la transazione ha invalidato almeno il primo elemento
-
+    std::cout <<std::endl<< "COMMITTED "<<(cycles_done*db_size)+index_db<<std::endl;
+    //sleep(1);
 
     if(quit == SIGINT)
     {
@@ -590,313 +483,6 @@ void update(string db_data_name, string db_label_name, int num_images_replaced_a
   return;
 
 }
-
-/*
-////////////////////////////////////
-
-        ///UPDATE TOT ALLA VOLTA
-
-        //vengono modificate num_images_replaced_at_once alla volta
-
-///////////////////////////////////
-void update(string db_data_name, string db_label_name, int num_images_replaced_at_once)
-{
-  //controllo se il database già esiste
-  boost::filesystem::path path_db(db_data_name);
-  if(!boost::filesystem::exists(path_db))
-  {
-    std::cout<<"il database \""<<db_data_name<<"\" non esiste, che aggiorno?"<<std::endl;
-    return;
-  }
-
-  std::unique_ptr<caffe::AutoveloxDataGenerator> datagenerator;
-  datagenerator = std::unique_ptr<caffe::AutoveloxDataGenerator>(new caffe::AutoveloxDataGenerator());
-  datagenerator->init();
-
-  //intercetto Ctrl+c per completare l'ultimo update prima di uscire
-  struct sigaction sigIntHandler;
-  sigIntHandler.sa_handler = got_signal;
-  sigemptyset(&sigIntHandler.sa_mask);
-  sigIntHandler.sa_flags = 0;
-  sigaction(SIGINT, &sigIntHandler, NULL);
-
-  // Apro un DB per i dati ed uno per le label
-  scoped_ptr<db::LMDB> db_data(new db::LMDB());
-  scoped_ptr<db::LMDB> db_label(new db::LMDB());
-
-  db_data->Open(db_data_name.c_str(), db::WRITE);
-  db_label->Open(db_label_name.c_str(), db::WRITE);
-
-  // Storing to db
-  Datum datum_data;
-  Datum datum_label;
-  int count = 0;
-  const int kMaxKeyLength = 256;
-  char key_cstr[kMaxKeyLength];
-  int data_size = 0;
-  bool data_size_initialized = false;
-
-  shared_ptr<db::LMDBCursor> cursor_data(db_data->NewCursor());
-  shared_ptr<db::LMDBCursor> cursor_label(db_label->NewCursor());
-  int index_db = 0;
-  bool need_reset = false;
-
-  while(true)
-  {
-    //vettore che contiene le coppie mat,label, dove la label è un vettore di stringhe
-    // (ogni stringa rappresenta però un intero, ad esempio "3")
-    std::vector<std::pair<cv::Mat, std::vector<std::string> > > lines;
-
-    //creo immagini e label
-    std::vector<cv::Mat> renderMats;
-    std::vector<std::string> label_string;
-
-    scoped_ptr<db::LMDBTransaction> txn_data(db_data->NewTransaction());
-    scoped_ptr<db::LMDBTransaction> txn_label(db_label->NewTransaction());
-
-
-    for(int ngi = 0; ngi < num_images_replaced_at_once; ++ngi)
-    {
-      if(renderMats.size() > 0) {
-        renderMats.clear();
-        label_string.clear();
-      }
-      datagenerator->render(renderMats);
-      datagenerator->getLabel(label_string);
-
-      //creo il Datum per l'immagine
-      CVMatToDatum(renderMats[0], &datum_data);
-      //inserisco una fake label perchè non mi interessa, dovrò creare un database solo per le label dopo
-      datum_data.set_label(-17);
-
-      //creo il Datum per la label
-      std::vector<int> label_int;
-
-      for(int nc = 0; nc < datagenerator->getNumberOfChars(); ++nc) {
-        label_int.push_back(datagenerator->getClass(label_string[nc]));
-      }
-      vectorIntToDatum(label_int, &datum_label);
-      //inserisco una fake label perchè non mi interessa la label della label °O°
-      datum_label.set_label(-18);
-
-
-      // sequential
-      int length = snprintf(key_cstr, kMaxKeyLength, "%09d_%s", index_db,
-                  "key");
-
-      // Put in db
-      string out_data;
-      string out_label;
-      CHECK(datum_data.SerializeToString(&out_data));
-      CHECK(datum_label.SerializeToString(&out_label));
-
-      Datum old_label;
-      old_label.ParseFromString(cursor_label->value());
-      std::string old_label_value = readDatumLabelValue(&old_label, &datagenerator);
-      std::cout << "Updating "<<cursor_data->key()<<"-->: "<<old_label_value<<" using : "<<cursor_data->key()<<"-->"<<vectorToString(label_string)<<std::endl;
-
-      //la chiave è ignorata dalla replace, poichè sostituisce solo il value
-      // dell'elemento corrente a cui punta il cursore
-
-
-//      cursor_data->Replace(key_cstr, out_data);
-  //    cursor_label->Replace(key_cstr, out_label);
-
-
-      txn_data->Put(string(key_cstr, length), out_data);
-      txn_label->Put(string(key_cstr, length), out_label);
-
-      //cv::imshow("rimpiazzo", renderMats[0]);
-      //cv::waitKey();
-
-      index_db++;
-      cursor_data->Next();
-      cursor_label->Next();
-      if (!cursor_data->valid()) {
-        DLOG(INFO) << "Restarting data prefetching from start.";
-        cursor_data->SeekToFirst();
-        cursor_label->SeekToFirst();
-        index_db = 0;
-        need_reset = true;
-        std::cout << "NEED RESET" << std::endl;
-      }
-
-    }
-
-    txn_data->Commit();
-    txn_data.reset(db_data->NewTransaction());
-    txn_label->Commit();
-    txn_label.reset(db_label->NewTransaction());
-    std::cout <<std::endl<< "COMMITTED "<<std::endl<<std::endl;
-
-    //se il cursore è tornato all'inizio durante le sostituzioni, allora va resettato ancora dopo
-    // il commit, poichè la transazione ha invalidato almeno il primo elemento
-    if (need_reset == true) {
-      DLOG(INFO) << "Restarting data prefetching from start.";
-      //std::cout << "RESETTED" << std::endl;
-      cursor_data->SeekToFirst();
-      cursor_label->SeekToFirst();
-      index_db = 0;
-      need_reset = false;
-    }
-
-    if(quit == SIGINT)
-    {
-      break;
-    }
-
-  }
-  return;
-
-}
-*/
-////////////////////////////////////
-
-        ///UPDATE UNO PER VOLTA
-
-///////////////////////////////////
-/*
-void update(string db_data_name, string db_label_name, int num_images_replaced)
-{
-  //controllo se il database già esiste
-  boost::filesystem::path path_db(db_data_name);
-  if(!boost::filesystem::exists(path_db))
-  {
-    std::cout<<"il database \""<<db_data_name<<"\" non esiste, che aggiorno?"<<std::endl;
-    return;
-  }
-
-  std::unique_ptr<caffe::AutoveloxDataGenerator> datagenerator;
-  datagenerator = std::unique_ptr<caffe::AutoveloxDataGenerator>(new caffe::AutoveloxDataGenerator());
-  datagenerator->init();
-
-  //intercetto Ctrl+c per completare l'ultimo update prima di uscire
-  struct sigaction sigIntHandler;
-  sigIntHandler.sa_handler = got_signal;
-  sigemptyset(&sigIntHandler.sa_mask);
-  sigIntHandler.sa_flags = 0;
-  sigaction(SIGINT, &sigIntHandler, NULL);
-
-  // Apro un DB per i dati ed uno per le label
-  scoped_ptr<db::LMDB> db_data(new db::LMDB());
-  scoped_ptr<db::LMDB> db_label(new db::LMDB());
-
-  db_data->Open(db_data_name.c_str(), db::WRITE);
-  db_label->Open(db_label_name.c_str(), db::WRITE);
-
-  // Storing to db
-  Datum datum_data;
-  Datum datum_label;
-  int count = 0;
-  const int kMaxKeyLength = 256;
-  char key_cstr[kMaxKeyLength];
-  int data_size = 0;
-  bool data_size_initialized = false;
-
-  shared_ptr<db::LMDBCursor> cursor_data(db_data->NewCursor());
-  shared_ptr<db::LMDBCursor> cursor_label(db_label->NewCursor());
-
-  scoped_ptr<db::LMDBTransaction> txn_data(db_data->NewTransaction());
-  scoped_ptr<db::LMDBTransaction> txn_label(db_label->NewTransaction());
-  while(true)
-  {
-    //vettore che contiene le coppie mat,label, dove la label è un vettore di stringhe
-    // (ogni stringa rappresenta però un intero, ad esempio "3")
-    std::vector<std::pair<cv::Mat, std::vector<std::string> > > lines;
-
-    //creo immagini e label
-    std::vector<cv::Mat> renderMats;
-    std::vector<std::string> label_string;
-    for(int ngi = 0; ngi < num_images_replaced; ++ngi)
-    {
-      if(renderMats.size() > 0) {
-        renderMats.clear();
-        label_string.clear();
-      }
-      datagenerator->render(renderMats);
-      datagenerator->getLabel(label_string);
-
-      //creo il Datum per l'immagine
-      CVMatToDatum(renderMats[0], &datum_data);
-      //inserisco una fake label perchè non mi interessa, dovrò creare un database solo per le label dopo
-      datum_data.set_label(-17);
-
-      //creo il Datum per la label
-      std::vector<int> label_int;
-
-      for(int nc = 0; nc < datagenerator->getNumberOfChars(); ++nc) {
-        label_int.push_back(datagenerator->getClass(label_string[nc]));
-      }
-      vectorIntToDatum(label_int, &datum_label);
-      //inserisco una fake label perchè non mi interessa la label della label °O°
-      datum_label.set_label(-18);
-
-
-      // sequential
-      int length = snprintf(key_cstr, kMaxKeyLength, "%09d_%s", ngi,
-                  "key");
-
-      // Put in db
-      string out_data;
-      string out_label;
-      CHECK(datum_data.SerializeToString(&out_data));
-      CHECK(datum_label.SerializeToString(&out_label));
-
-      Datum old_label;
-      old_label.ParseFromString(cursor_label->value());
-      std::string old_label_value = readDatumLabelValue(&old_label, &datagenerator);
-      std::cout << "Updating "<<cursor_data->key()<<"-->: "<<old_label_value<<" using : "<<cursor_data->key()<<"-->"<<vectorToString(label_string)<<std::endl;
-
-      //la chiave è ignorata dalla replace, poichè sostituisce solo il value
-      // dell'elemento corrente a cui punta il cursore
-
-
-//      cursor_data->Replace(key_cstr, out_data);
-  //    cursor_label->Replace(key_cstr, out_label);
-
-
-      txn_data->Put(string(key_cstr, length), out_data);
-      txn_label->Put(string(key_cstr, length), out_label);
-      txn_data->Commit();
-      txn_data.reset(db_data->NewTransaction());
-      txn_label->Commit();
-      txn_label.reset(db_label->NewTransaction());
-
-      //cv::imshow("rimpiazzo", renderMats[0]);
-      //cv::waitKey();
-
-      cursor_data->Next();
-      cursor_label->Next();
-      if (!cursor_data->valid()) {
-        DLOG(INFO) << "Restarting data prefetching from start.";
-        cursor_data->SeekToFirst();
-        cursor_label->SeekToFirst();
-      }
-
-      if(quit == SIGINT)
-      {
-        break;
-      }
-
-    }
-
-    if(quit == SIGINT)
-    {
-      break;
-    }
-
-  }
-  return;
-
-}
-*/
-
-
-
-
-
-
-
 
 
 
@@ -910,12 +496,9 @@ int main(int argc, char** argv) {
   namespace gflags = google;
 #endif
 
-  gflags::SetUsageMessage("Convert a set of images to the leveldb/lmdb\n"
-        "format used as input for Caffe.\n"
+  gflags::SetUsageMessage("Create, read or update a leveldb/lmdb database\n"
         "Usage:\n"
-        "    convert_imageset [FLAGS] ACTION{create, update, read} DB_NAME NUM_IMAGES\n"
-        "The ImageNet dataset for the training demo is at\n"
-        "    http://www.image-net.org/download-images\n");
+        "    lmbdGenerator [FLAGS] ACTION{create, update, read} DB_NAME NUM_IMAGES\n");
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
   if (argc < 4) {
@@ -930,7 +513,6 @@ int main(int argc, char** argv) {
   }
 
   const bool is_color = !FLAGS_gray;
-  const bool check_size = FLAGS_check_size;
   string num_images = argv[3];
   const int num_images_int = s2i(num_images);
 
@@ -954,6 +536,10 @@ int main(int argc, char** argv) {
   {
     //vengono lette num_images_int. Se num_images_int > delle immagini del database, ricomincia dall'inizio
     read(db_data_name, db_label_name, num_images_int);
+  }
+  else
+  {
+    std::cout << "Azione non prevista. Azioni supportate: create, read, update" << std::endl;
   }
 
 }

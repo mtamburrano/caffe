@@ -20,11 +20,8 @@ void LMDB::Open(const string& source, Mode mode) {
   LOG(INFO) << "WARNING: IL DATABASE VIENE APERTO FORZATAMENTE CON MDB_NOLOCK PER CONSENTIRE L'UPDATE ";
   flags |= MDB_NOLOCK;
   if (mode == READ) {
-    flags = MDB_RDONLY | MDB_NOTLS;
-    LOG(INFO) << "REEEEEEEAD: " << mode_transaction_;
-    mode_transaction_ = MDB_RDONLY;
-  }else
-  mode_transaction_ = 0;
+    flags = MDB_RDONLY;// | MDB_NOTLS;
+  }
 
   int rc = mdb_env_open(mdb_env_, source.c_str(), flags, 0664);
 #ifndef ALLOW_LMDB_NOLOCK
@@ -45,6 +42,25 @@ void LMDB::Open(const string& source, Mode mode) {
   LOG(INFO) << "Opened lmdb " << source;
 }
 
+int LMDB::GetSize() {
+  MDB_stat stat;
+  MDB_CHECK(mdb_env_stat (mdb_env_, &stat));
+  return stat.ms_entries;
+}
+
+void LMDB::PrintStats() {
+  MDB_stat stat;
+
+  MDB_CHECK(mdb_env_stat (mdb_env_, &stat));
+  LOG(INFO) << "---------STATS:---------";
+  LOG(INFO) << "--- ms_psize:" << (int)stat.ms_psize;
+  LOG(INFO) << "--- ms_depth:" << (int)stat.ms_depth;
+  LOG(INFO) << "--- ms_branch_pages:" << stat.ms_branch_pages;
+  LOG(INFO) << "--- ms_leaf_pages:" << stat.ms_leaf_pages;
+  LOG(INFO) << "--- ms_overflow_pages:" << stat.ms_overflow_pages;
+  LOG(INFO) << "--- ms_entries:" << stat.ms_entries;
+}
+
 LMDBCursor* LMDB::NewCursor() {
   MDB_txn* mdb_txn;
   MDB_cursor* mdb_cursor;
@@ -54,9 +70,16 @@ LMDBCursor* LMDB::NewCursor() {
   return new LMDBCursor(mdb_txn, mdb_cursor);
 }
 
+void LMDBCursor::Renew() {
+  mdb_txn_reset(mdb_txn_);
+  MDB_CHECK(mdb_txn_renew(mdb_txn_));
+  MDB_CHECK(mdb_cursor_renew(mdb_txn_,mdb_cursor_));
+  MDB_CHECK(mdb_cursor_get(mdb_cursor_, &last_key_used_, &mdb_value_, MDB_SET));
+}
+
 LMDBTransaction* LMDB::NewTransaction() {
   MDB_txn* mdb_txn;
-  MDB_CHECK(mdb_txn_begin(mdb_env_, NULL, mode_transaction_, &mdb_txn));
+  MDB_CHECK(mdb_txn_begin(mdb_env_, NULL, 0, &mdb_txn));
   MDB_CHECK(mdb_dbi_open(mdb_txn, NULL, 0, &mdb_dbi_));
   return new LMDBTransaction(&mdb_dbi_, mdb_txn);
 }
@@ -70,19 +93,6 @@ void LMDBTransaction::Put(const string& key, const string& value) {
   MDB_CHECK(mdb_put(mdb_txn_, *mdb_dbi_, &mdb_key, &mdb_value, 0));
 }
 
-void LMDBTransaction::Get(string& key, string& value) {
-  LOG(INFO)<< "KEY: "<<key;
-  MDB_val mdb_key, mdb_value;
-  mdb_key.mv_data = const_cast<char*>(key.data());
-  mdb_key.mv_size = key.size();
-  mdb_value.mv_data = const_cast<char*>(value.data());
-  mdb_value.mv_size = value.size();
-  MDB_CHECK(mdb_get(mdb_txn_, *mdb_dbi_, &mdb_key, &mdb_value));
-  key = string(static_cast<const char*>(mdb_key.mv_data),
-               mdb_key.mv_size);
-  value = string(static_cast<const char*>(mdb_value.mv_data),
-                 mdb_value.mv_size);
-}
 
 }  // namespace db
 }  // namespace caffe
