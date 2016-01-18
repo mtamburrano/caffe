@@ -266,7 +266,7 @@ void create(string db_data_name, string db_label_name, int num_generated_images)
       renderMats.clear();
       label_string.clear();
     }
-    datagenerator->render(renderMats);
+    datagenerator->render(renderMats[0]);
     datagenerator->getLabel(label_string);
 
     lines.push_back(std::make_pair(renderMats[0], label_string));
@@ -423,7 +423,7 @@ void update(string db_data_name, string db_label_name, int num_images_replaced_a
         renderMats.clear();
         label_string.clear();
       }
-      datagenerator->render(renderMats);
+      datagenerator->render(renderMats[0]);
       datagenerator->getLabel(label_string);
 
       //creo il Datum per l'immagine

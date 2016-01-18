@@ -207,7 +207,7 @@ class Generator3D : public caffe::MemoryDataLayer<float>::MatGenerator {
 
             //speedtest__("Render Speed: ")
             {
-              _datagenerator->render(renderMats);
+              _datagenerator->render(renderMats[0]);
             }
             _datagenerator->getLabel(label_string);
 
