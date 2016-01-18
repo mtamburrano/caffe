@@ -18,6 +18,7 @@ class LevelDBCursor : public Cursor {
   ~LevelDBCursor() { delete iter_; }
   virtual void SeekToFirst() { iter_->SeekToFirst(); }
   virtual void Next() { iter_->Next(); }
+  virtual void Renew() { LOG(ERROR) << "NON IMPLEMENTATO - usa lmdb"; }
   virtual string key() { return iter_->key().ToString(); }
   virtual string value() { return iter_->value().ToString(); }
   virtual bool valid() { return iter_->Valid(); }
@@ -62,6 +63,9 @@ class LevelDB : public DB {
   virtual LevelDBTransaction* NewTransaction() {
     return new LevelDBTransaction(db_);
   }
+  
+  virtual int GetSize() { LOG(ERROR) << "NON IMPLEMENTATO - usa lmdb"; return -1; }
+  virtual void PrintStats() { LOG(ERROR) << "NON IMPLEMENTATO - usa lmdb";}
 
  private:
   leveldb::DB* db_;

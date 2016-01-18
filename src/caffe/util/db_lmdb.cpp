@@ -16,9 +16,13 @@ void LMDB::Open(const string& source, Mode mode) {
     CHECK_EQ(mkdir(source.c_str(), 0744), 0) << "mkdir " << source << "failed";
   }
   int flags = 0;
+
+  LOG(INFO) << "WARNING: IL DATABASE VIENE APERTO FORZATAMENTE CON MDB_NOLOCK PER CONSENTIRE L'UPDATE ";
+  flags |= MDB_NOLOCK;
   if (mode == READ) {
-    flags = MDB_RDONLY | MDB_NOTLS;
+    flags = MDB_RDONLY;// | MDB_NOTLS;
   }
+
   int rc = mdb_env_open(mdb_env_, source.c_str(), flags, 0664);
 #ifndef ALLOW_LMDB_NOLOCK
   MDB_CHECK(rc);
@@ -38,6 +42,25 @@ void LMDB::Open(const string& source, Mode mode) {
   LOG(INFO) << "Opened lmdb " << source;
 }
 
+int LMDB::GetSize() {
+  MDB_stat stat;
+  MDB_CHECK(mdb_env_stat (mdb_env_, &stat));
+  return stat.ms_entries;
+}
+
+void LMDB::PrintStats() {
+  MDB_stat stat;
+
+  MDB_CHECK(mdb_env_stat (mdb_env_, &stat));
+  LOG(INFO) << "---------STATS:---------";
+  LOG(INFO) << "--- ms_psize:" << (int)stat.ms_psize;
+  LOG(INFO) << "--- ms_depth:" << (int)stat.ms_depth;
+  LOG(INFO) << "--- ms_branch_pages:" << stat.ms_branch_pages;
+  LOG(INFO) << "--- ms_leaf_pages:" << stat.ms_leaf_pages;
+  LOG(INFO) << "--- ms_overflow_pages:" << stat.ms_overflow_pages;
+  LOG(INFO) << "--- ms_entries:" << stat.ms_entries;
+}
+
 LMDBCursor* LMDB::NewCursor() {
   MDB_txn* mdb_txn;
   MDB_cursor* mdb_cursor;
@@ -45,6 +68,13 @@ LMDBCursor* LMDB::NewCursor() {
   MDB_CHECK(mdb_dbi_open(mdb_txn, NULL, 0, &mdb_dbi_));
   MDB_CHECK(mdb_cursor_open(mdb_txn, mdb_dbi_, &mdb_cursor));
   return new LMDBCursor(mdb_txn, mdb_cursor);
+}
+
+void LMDBCursor::Renew() {
+  mdb_txn_reset(mdb_txn_);
+  MDB_CHECK(mdb_txn_renew(mdb_txn_));
+  MDB_CHECK(mdb_cursor_renew(mdb_txn_,mdb_cursor_));
+  MDB_CHECK(mdb_cursor_get(mdb_cursor_, &last_key_used_, &mdb_value_, MDB_SET));
 }
 
 LMDBTransaction* LMDB::NewTransaction() {
@@ -62,6 +92,7 @@ void LMDBTransaction::Put(const string& key, const string& value) {
   mdb_value.mv_size = value.size();
   MDB_CHECK(mdb_put(mdb_txn_, *mdb_dbi_, &mdb_key, &mdb_value, 0));
 }
+
 
 }  // namespace db
 }  // namespace caffe
