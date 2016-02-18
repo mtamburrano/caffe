@@ -440,6 +440,8 @@ void DataTransformer<Dtype>::Transform(const cv::Mat& cv_img,
             }
         }
     }
+    //cv::imshow("resize out_img", cv_cropped_image);
+    //cv::waitKey();
 }
 #endif  // USE_OPENCV
 

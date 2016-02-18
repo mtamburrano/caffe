@@ -89,6 +89,9 @@ void DataLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
     int offset = batch->data_.offset(item_id);
     this->transformed_data_.set_cpu_data(top_data + offset);
     this->data_transformer_->Transform(datum, &(this->transformed_data_));
+    //if (datum.float_data_size() == 7)
+    //   std::cout << "Label " << *(top_data+offset) << std::endl;
+
     // Copy label.
     if (this->output_labels_) {
       top_label[item_id] = datum.label();

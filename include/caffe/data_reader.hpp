@@ -10,6 +10,8 @@
 #include "caffe/util/blocking_queue.hpp"
 #include "caffe/util/db.hpp"
 
+#include "caffe/util/mqtt_checker.hpp"
+
 namespace caffe {
 
 /**
@@ -33,6 +35,7 @@ class DataReader {
   }
 
  protected:
+
   // Queue pairs are shared between a body and its readers
   class QueuePair {
    public:
@@ -57,6 +60,7 @@ class DataReader {
 
     const LayerParameter param_;
     BlockingQueue<shared_ptr<QueuePair> > new_queue_pairs_;
+    shared_ptr<MqttCaffe> mqtt_shuffler;
 
     friend class DataReader;
 

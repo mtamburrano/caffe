@@ -8,6 +8,7 @@
 #include "caffe/layers/data_layer.hpp"
 #include "caffe/proto/caffe.pb.h"
 
+
 namespace caffe {
 
 using boost::weak_ptr;
@@ -28,6 +29,7 @@ DataReader::DataReader(const LayerParameter& param)
     bodies_[key] = weak_ptr<Body>(body_);
   }
   body_->new_queue_pairs_.push(queue_pair_);
+
 }
 
 DataReader::~DataReader() {
@@ -63,10 +65,15 @@ DataReader::QueuePair::~QueuePair() {
 DataReader::Body::Body(const LayerParameter& param)
     : param_(param),
       new_queue_pairs_() {
+  mosqpp::lib_init();
+  mqtt_shuffler = shared_ptr<MqttCaffe>(new MqttCaffe("Shuffler Checker"));
+  mqtt_shuffler->loop_start();
   StartInternalThread();
 }
 
 DataReader::Body::~Body() {
+  mqtt_shuffler->loop_stop(true);
+  mosqpp::lib_cleanup();
   StopInternalThread();
 }
 
@@ -89,6 +96,18 @@ void DataReader::Body::InternalThreadEntry() {
     // Main loop
     while (!must_stop()) {
       for (int i = 0; i < solver_count; ++i) {
+        if(mqtt_shuffler->isShuffling())
+        {
+          char buf[11] = {'G','O',' ','S','H','U','F','F','L','E',0};
+          mqtt_shuffler->publish(NULL, "shuffle_news", strlen(buf), buf);
+          LOG(INFO) << "WAITING WHILE SHUFFLE IS GOING.";
+          while(mqtt_shuffler->isShuffling())
+          {
+            sleep(1);
+          }
+          LOG(INFO) << "SHUFFLE DONE, RESTARTING.";
+          cursor->SeekToFirst();
+        }
         read_one(cursor.get(), qps[i].get());
       }
       // Check no additional readers have been created. This can happen if
@@ -111,7 +130,7 @@ void DataReader::Body::read_one(db::Cursor* cursor, QueuePair* qp) {
   // go to the next iter
   cursor->Renew();
   cursor->Next();
-  
+
   if (!cursor->valid()) {
     DLOG(INFO) << "Restarting data prefetching from start.";
     cursor->SeekToFirst();

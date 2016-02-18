@@ -25,14 +25,14 @@ foreach(source ${srcs})
   endif()
   
   # restore output name without suffix
-  if(name MATCHES "caffeDataGenerator.bin")
-    set_target_properties(${name} PROPERTIES OUTPUT_NAME caffeDataGenerator)
-  endif()
+  #if(name MATCHES "caffeDataGenerator.bin")
+  #  set_target_properties(${name} PROPERTIES OUTPUT_NAME caffeDataGenerator)
+  #endif()
   
   # restore output name without suffix
-  if(name MATCHES "lmdbGenerator.bin")
-    set_target_properties(${name} PROPERTIES OUTPUT_NAME lmdbGenerator)
-  endif()
+  #if(name MATCHES "lmdbGenerator.bin")
+  #  set_target_properties(${name} PROPERTIES OUTPUT_NAME lmdbGenerator)
+  #endif()
 
   # Install
   install(TARGETS ${name} DESTINATION bin)

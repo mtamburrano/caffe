@@ -1,7 +1,17 @@
 # generate protobuf sources
 file(GLOB proto_files proto/*.proto)
-caffe_protobuf_generate_cpp_py(${proto_gen_folder} proto_srcs proto_hdrs proto_python ${proto_files})
+find_package(ImageMagick COMPONENTS Magick++ REQUIRED)
 
+caffe_protobuf_generate_cpp_py(${proto_gen_folder} proto_srcs proto_hdrs proto_python ${proto_files})
+if(CMAKE_SIZEOF_VOID_P EQUAL 4 )
+  set(IMAGEMAGIC_INCLUDE_DIR "/usr/include/i386-linux-gnu/ImageMagick-6")
+else()
+  set(IMAGEMAGIC_INCLUDE_DIR "/usr/include/x86_64-linux-gnu/ImageMagick-6")
+endif()
+
+include_directories(
+"${ImageMagick_Magick++_INCLUDE_DIR} "
+"${IMAGEMAGIC_INCLUDE_DIR}")
 # include python files either to force generation
 add_library(proto STATIC ${proto_hdrs} ${proto_srcs} ${proto_python})
 set(Caffe_LINKER_LIBS proto ${Caffe_LINKER_LIBS}) # note, crucial to prepend!
@@ -18,7 +28,7 @@ if(HAVE_CUDA)
 endif()
 
 add_library(caffe ${srcs})
-target_link_libraries(caffe proto ${Caffe_LINKER_LIBS})
+target_link_libraries(caffe proto ${Caffe_LINKER_LIBS}  ${ImageMagick_LIBRARIES} mosquittopp)
 caffe_default_properties(caffe)
 
 # ---[ Tests
@@ -32,5 +42,3 @@ install(TARGETS caffe proto EXPORT CaffeTargets DESTINATION lib)
 file(WRITE ${PROJECT_BINARY_DIR}/__init__.py)
 list(APPEND proto_python ${PROJECT_BINARY_DIR}/__init__.py)
 install(PROGRAMS ${proto_python} DESTINATION python/caffe/proto)
-
-

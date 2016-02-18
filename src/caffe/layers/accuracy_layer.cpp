@@ -94,7 +94,8 @@ void AccuracyLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
           break;
         }
         else {
-          single_item_multi_task_accuracy = 0;
+          if(k == top_k_-1)
+            single_item_multi_task_accuracy = 0;
         }
 
       }

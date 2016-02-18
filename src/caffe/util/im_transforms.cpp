@@ -13,15 +13,42 @@
 #include "caffe/util/math_functions.hpp"
 #include "caffe/util/rng.hpp"
 
+#include <sstream>
+#include <Magick++.h>
+
 #if CV_VERSION_MAJOR == 3
 #define CV_THRESH_BINARY_INV cv::THRESH_BINARY_INV
 #define CV_THRESH_OTSU cv::THRESH_OTSU
 #endif
 
+
+void generatePlasma(const cv::Mat& src, cv::Mat& dst, int transf_value){
+
+  Magick::Image plasma;
+  std::string size = std::to_string(src.cols) + "x" + std::to_string(src.rows);
+  plasma.size( size );
+  //plasma.read( "plasma:fractal" );
+  std::string plasma_type = "plasma:grey"+std::to_string(transf_value)+"-gray90";
+  plasma.read( plasma_type );
+  plasma.type(Magick::GrayscaleType);
+  plasma.label( "Plasma" );
+  plasma.write(0, 0, plasma.columns(), plasma.rows(), "R", Magick::CharPixel, dst.data);
+
+}
+
+void plasma_and_multiply(const cv::Mat& src, cv::Mat& dst, int transf_value)
+{
+  cv::Mat plasmaBG(src.rows,src.cols,CV_8UC1);
+  generatePlasma(src, plasmaBG, transf_value);
+  cv::multiply(src,plasmaBG,dst, 1./255.);
+
+}
+
+
 namespace caffe {
   void unsharpMask(cv::Mat& im) {
     cv::Mat tmp;
-    cv::GaussianBlur(im, tmp, cv::Size(5, 5), 5);
+    cv::GaussianBlur(im, tmp, cv::Size(5, 5), 2);
     cv::addWeighted(im, 1.5, tmp, -0.5, 0, im);
   }
 
@@ -238,7 +265,6 @@ namespace caffe {
     // Reading parameters
     const int new_height = param.height();
     const int new_width = param.width();
-
     int pad_mode;
     switch (param.pad_mode()) {
       case ResizeParameter_Pad_mode_CONSTANT:
@@ -322,6 +348,9 @@ namespace caffe {
           interp_mode, pad_mode,
           cv::Scalar(pad_values[0], pad_values[1], pad_values[2]));
       out_img = temp_img;
+      //cv::imshow("resize in_img", in_img);
+      //cv::imshow("resize out_img", out_img);
+      //cv::waitKey();
     }
 
     switch (param.resize_mode()) {
@@ -345,6 +374,7 @@ namespace caffe {
         break;
       }
     }
+
     return  out_img;
   }
 
@@ -360,6 +390,13 @@ namespace caffe {
     }
 
     if (param.gauss_blur()) {
+      //cv::normalize(out_img,out_img,10,60,cv::NORM_MINMAX);
+
+      int min = rand() % 30 + 20;
+      int diff = rand() % 20 + 70;
+      int max = min + diff;
+      cv::normalize(out_img,out_img,min,max,cv::NORM_MINMAX);
+
       cv::GaussianBlur(out_img, out_img, cv::Size(7, 7), 1.5);
     }
 
@@ -463,18 +500,75 @@ namespace caffe {
               * out_img.cols * out_img.rows);
       constantNoise(out_img, noise_pixels_num, noise_values);
     }
-    
+
     if (param.convert_to_hsv()) {
-      cv::Mat hsv_image;
-      cv::cvtColor(out_img, hsv_image, CV_BGR2HSV); 
-      out_img = hsv_image;
+      //cv::Mat hsv_image;
+      //cv::cvtColor(out_img, hsv_image, CV_BGR2H SV);
+      //out_img = hsv_image;
+      //cv::Canny(out_img, tmp, 100, 200);
+      //threshold(out_img, tmp,1, 255,cv::THRESH_TOZERO); //Threshold the gray
+      cv::Mat tmp = cv::Mat::zeros( out_img.size(), out_img.type() );
+
+      // create a matrix with all elements equal to 255 for subtraction
+      cv::Mat tmp2 = cv::Mat::ones(out_img.size(), out_img.type())*255;
+
+      //subtract the original matrix by sub_mat to give the negative output new_image
+      cv::subtract(tmp2, out_img, tmp);
+
+      threshold(out_img, tmp,100, 255,cv::THRESH_TOZERO); //Threshold the gray
+
+      imshow("canny", tmp);
+      imshow("src", out_img);
+      vector< vector<cv::Point> > contours;
+      cv::findContours(tmp, contours, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE);
+      cv::Mat mask = cv::Mat::zeros(tmp.rows, tmp.cols, CV_8UC1);
+
+      // CV_FILLED fills the connected components found
+      //vector<double> areas(contours.size());
+      double maxArea = 0;
+      //double secondmaxArea = 0;
+      int maxArea_i = 0;
+      int secondmaxArea_i = 0;
+      int thirdmaxArea_i = 0;
+      for(int i = 0; i < contours.size(); i++)
+      {
+          double area = cv::contourArea(cv::Mat(contours[i]));
+          if(area > maxArea)
+          {
+            maxArea = area;
+            maxArea_i = i;
+            secondmaxArea_i = maxArea_i;
+            thirdmaxArea_i= secondmaxArea_i;
+          }
+
+      }
+      //double max_c;
+      //cv::Point maxPosition;
+      //cv::minMaxLoc(cv::Mat(areas),0,&max_c,0,&maxPosition);
+      cv::drawContours(mask, contours, maxArea_i, cv::Scalar(255), CV_FILLED);
+      cv::imshow("mask", mask);
+
+      int min = rand() % 30 + 20;
+      int diff = rand() % 20 + 50;
+      int max = min + diff;
+      cv::normalize(out_img,out_img,min,max,cv::NORM_MINMAX);
+      int rand_blur = rand() % 4 +2;
+      cv::GaussianBlur(out_img, out_img, cv::Size(7, 7), rand_blur);
+
     }
     if (param.convert_to_lab()) {
-      cv::Mat lab_image;
+      int transf_value = rand() % 60 + 40;
+      plasma_and_multiply(out_img, out_img, transf_value);
+      /*cv::Mat lab_image;
       out_img.convertTo(lab_image, CV_32F);
       lab_image *= 1.0 / 255;
       cv::cvtColor(lab_image, out_img,CV_BGR2Lab);
+      */
     }
+    //std::cout << "counting " << counter++ << std::endl;
+    /*cv::imshow("noise in_img", in_img);
+    cv::imshow("noise out_img", out_img);
+    cv::waitKey();*/
     return  out_img;
   }
 }  // namespace caffe
