@@ -3,12 +3,14 @@
 #include <string>
 #include <stdio.h>
 #include <stdlib.h>
+#include <iostream>
 
 
 class MqttCaffe : public mosqpp::mosquittopp {
  public:
   MqttCaffe(const char *id);
   ~MqttCaffe() {
+    std::cout << "mqtt distrutto"<<std::endl;
   };
 
   void on_connect(int rc);

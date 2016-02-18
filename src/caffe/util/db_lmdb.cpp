@@ -77,6 +77,13 @@ void LMDBCursor::Renew() {
   MDB_CHECK(mdb_cursor_get(mdb_cursor_, &last_key_used_, &mdb_value_, MDB_SET));
 }
 
+void LMDBCursor::RenewWithoutGet() {
+  mdb_txn_reset(mdb_txn_);
+  MDB_CHECK(mdb_txn_renew(mdb_txn_));
+  MDB_CHECK(mdb_cursor_renew(mdb_txn_,mdb_cursor_));
+}
+
+
 LMDBTransaction* LMDB::NewTransaction() {
   MDB_txn* mdb_txn;
   MDB_CHECK(mdb_txn_begin(mdb_env_, NULL, 0, &mdb_txn));

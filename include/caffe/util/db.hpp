@@ -17,6 +17,7 @@ class Cursor {
   virtual void SeekToFirst() = 0;
   virtual void Next() = 0;
   virtual void Renew() = 0;
+  virtual void RenewWithoutGet(){};
   virtual string key() = 0;
   virtual string value() = 0;
   virtual bool valid() = 0;

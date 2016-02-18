@@ -36,6 +36,8 @@ class DataReader {
 
  protected:
 
+   shared_ptr<MqttCaffe> mqtt_shuffler;
+
   // Queue pairs are shared between a body and its readers
   class QueuePair {
    public:
@@ -60,8 +62,8 @@ class DataReader {
 
     const LayerParameter param_;
     BlockingQueue<shared_ptr<QueuePair> > new_queue_pairs_;
-    shared_ptr<MqttCaffe> mqtt_shuffler;
 
+    shared_ptr<MqttCaffe> mqtt_shuffler;
     friend class DataReader;
 
   DISABLE_COPY_AND_ASSIGN(Body);

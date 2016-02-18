@@ -65,9 +65,6 @@ DataReader::QueuePair::~QueuePair() {
 DataReader::Body::Body(const LayerParameter& param)
     : param_(param),
       new_queue_pairs_() {
-  mosqpp::lib_init();
-  mqtt_shuffler = shared_ptr<MqttCaffe>(new MqttCaffe("Shuffler Checker"));
-  mqtt_shuffler->loop_start();
   StartInternalThread();
 }
 
@@ -83,6 +80,13 @@ void DataReader::Body::InternalThreadEntry() {
   shared_ptr<db::Cursor> cursor(db->NewCursor());
   vector<shared_ptr<QueuePair> > qps;
   try {
+
+    mosqpp::lib_init();
+    std::string name_mqtt = "Shuffler Checker"+param_.data_param().source();
+    mqtt_shuffler = shared_ptr<MqttCaffe>(new MqttCaffe(name_mqtt.c_str()));
+    std::cout << "mqtt started" << std::endl;
+    mqtt_shuffler->loop_start();
+
     int solver_count = param_.phase() == TRAIN ? Caffe::solver_count() : 1;
 
     // To ensure deterministic runs, only start running once all solvers
@@ -106,6 +110,7 @@ void DataReader::Body::InternalThreadEntry() {
             sleep(1);
           }
           LOG(INFO) << "SHUFFLE DONE, RESTARTING.";
+          cursor->RenewWithoutGet();
           cursor->SeekToFirst();
         }
         read_one(cursor.get(), qps[i].get());

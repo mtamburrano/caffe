@@ -35,6 +35,7 @@ class LMDBCursor : public Cursor {
   }
   virtual bool valid() { return valid_; }
   virtual void Renew();
+  virtual void RenewWithoutGet();
 
  private:
   void Seek(MDB_cursor_op op) {
