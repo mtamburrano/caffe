@@ -100,6 +100,15 @@ void LMDBTransaction::Put(const string& key, const string& value) {
   MDB_CHECK(mdb_put(mdb_txn_, *mdb_dbi_, &mdb_key, &mdb_value, 0));
 }
 
+void LMDBTransaction::Get(const string& key, string& value) {
+  MDB_val mdb_key, mdb_value;
+  mdb_key.mv_data = const_cast<char*>(key.data());
+  mdb_key.mv_size = key.size();
+  MDB_CHECK(mdb_get(mdb_txn_, *mdb_dbi_, &mdb_key, &mdb_value));
+  value = string(static_cast<const char*>(mdb_value.mv_data), mdb_value.mv_size);
+
+}
+
 
 }  // namespace db
 }  // namespace caffe

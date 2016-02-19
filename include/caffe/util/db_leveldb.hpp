@@ -33,6 +33,7 @@ class LevelDBTransaction : public Transaction {
   virtual void Put(const string& key, const string& value) {
     batch_.Put(key, value);
   }
+  virtual void Get(const string& key, string& value) { LOG(ERROR) << "NON IMPLEMENTATO - usa lmdb";}
   virtual void Commit() {
     leveldb::Status status = db_->Write(leveldb::WriteOptions(), &batch_);
     CHECK(status.ok()) << "Failed to write batch to leveldb "
