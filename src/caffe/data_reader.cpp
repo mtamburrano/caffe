@@ -80,6 +80,19 @@ void DataReader::Body::InternalThreadEntry() {
   shared_ptr<db::Cursor> cursor(db->NewCursor());
   vector<shared_ptr<QueuePair> > qps;
   try {
+    int read_count = 0;
+    float db_size = db->GetSize();
+
+    int solver_count = param_.phase() == TRAIN ? Caffe::solver_count() : 1;
+    // To ensure deterministic runs, only start running once all solvers
+    // are ready. But solvers need to peek on one item during initialization,
+    // so read one item, then wait for the next solver.
+    for (int i = 0; i < solver_count; ++i) {
+      shared_ptr<QueuePair> qp(new_queue_pairs_.pop());
+      read_one(cursor.get(), qp.get());
+      read_count++;
+      qps.push_back(qp);
+    }
 
     mosqpp::lib_init();
     std::string name_mqtt = "Shuffler Checker"+param_.data_param().source();
@@ -87,33 +100,43 @@ void DataReader::Body::InternalThreadEntry() {
     std::cout << "mqtt started" << std::endl;
     mqtt_shuffler->loop_start();
 
-    int solver_count = param_.phase() == TRAIN ? Caffe::solver_count() : 1;
-
-    // To ensure deterministic runs, only start running once all solvers
-    // are ready. But solvers need to peek on one item during initialization,
-    // so read one item, then wait for the next solver.
-    for (int i = 0; i < solver_count; ++i) {
-      shared_ptr<QueuePair> qp(new_queue_pairs_.pop());
-      read_one(cursor.get(), qp.get());
-      qps.push_back(qp);
-    }
     // Main loop
     while (!must_stop()) {
       for (int i = 0; i < solver_count; ++i) {
         if(mqtt_shuffler->isShuffling())
         {
           char buf[11] = {'G','O',' ','S','H','U','F','F','L','E',0};
-          mqtt_shuffler->publish(NULL, "shuffle_news", strlen(buf), buf);
+          if(param_.phase() == TRAIN)
+          {
+            //il messaggio di shufflare lo faccio partire solo al train, così
+            //non rischiamo che il test faccia partire lo shuffle mentre il train
+            //sta ancora facendo una read_one
+            mqtt_shuffler->publish(NULL, "shuffle_news", strlen(buf), buf);
+          }
           LOG(INFO) << "WAITING WHILE SHUFFLE IS GOING.";
           while(mqtt_shuffler->isShuffling())
           {
             sleep(1);
           }
           LOG(INFO) << "SHUFFLE DONE, RESTARTING.";
+          db_size = db->GetSize();
+          LOG(INFO) << "NEW DB SIZE = "<<db_size;
           cursor->RenewWithoutGet();
           cursor->SeekToFirst();
+          read_count = 0;
         }
+
         read_one(cursor.get(), qps[i].get());
+        read_count++;
+        //siamo arrivati al limite delle vecchie entry, riparto dal'inizio
+        if(read_count == db_size)
+        {
+          std::cout << "read_count == db_size ("<<read_count<< "=="<< db_size<<") ->seekToFirst()"<<std::endl;
+          cursor->RenewWithoutGet();
+          cursor->SeekToFirst();
+          read_count = 0;
+        }
+
       }
       // Check no additional readers have been created. This can happen if
       // more than one net is trained at a time per process, whether single
@@ -137,7 +160,7 @@ void DataReader::Body::read_one(db::Cursor* cursor, QueuePair* qp) {
   cursor->Next();
 
   if (!cursor->valid()) {
-    DLOG(INFO) << "Restarting data prefetching from start.";
+    LOG(INFO) << "Restarting data prefetching from start.";
     cursor->SeekToFirst();
   }
 }
