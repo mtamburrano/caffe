@@ -127,8 +127,9 @@ bool ReadImageToDatum(const string& filename, const int label,
         return ReadFileToDatum(filename, label, datum);
       std::vector<uchar> buf;
       cv::imencode("."+encoding, cv_img, buf);
-      datum->set_data(std::string(reinterpret_cast<char*>(&buf[0]),
-                      buf.size()));
+      /*datum->set_data(std::string(reinterpret_cast<char*>(&buf[0]),
+                      buf.size()));*/
+      datum->set_data(std::string(buf.begin(), buf.end()));
       datum->set_label(label);
       datum->set_encoded(true);
       return true;
@@ -167,7 +168,7 @@ cv::Mat DecodeDatumToCVMatNative(const Datum& datum) {
   cv::Mat cv_img;
   CHECK(datum.encoded()) << "Datum not encoded";
   const string& data = datum.data();
-  std::vector<char> vec_data(data.c_str(), data.c_str() + data.size());
+  std::vector<uchar> vec_data(data.begin(), data.end());
   cv_img = cv::imdecode(vec_data, -1);
   if (!cv_img.data) {
     LOG(ERROR) << "Could not decode datum ";
@@ -178,7 +179,7 @@ cv::Mat DecodeDatumToCVMat(const Datum& datum, bool is_color) {
   cv::Mat cv_img;
   CHECK(datum.encoded()) << "Datum not encoded";
   const string& data = datum.data();
-  std::vector<char> vec_data(data.c_str(), data.c_str() + data.size());
+  std::vector<uchar> vec_data(data.begin(), data.end());
   int cv_read_flag = (is_color ? CV_LOAD_IMAGE_COLOR :
     CV_LOAD_IMAGE_GRAYSCALE);
   cv_img = cv::imdecode(vec_data, cv_read_flag);
@@ -221,7 +222,7 @@ void CVMatToDatum(const cv::Mat& cv_img, Datum* datum) {
   int datum_height = datum->height();
   int datum_width = datum->width();
   int datum_size = datum_channels * datum_height * datum_width;
-  std::string buffer(datum_size, ' ');
+  /*std::string buffer(datum_size, ' ');
   for (int h = 0; h < datum_height; ++h) {
     const uchar* ptr = cv_img.ptr<uchar>(h);
     int img_index = 0;
@@ -231,7 +232,8 @@ void CVMatToDatum(const cv::Mat& cv_img, Datum* datum) {
         buffer[datum_index] = static_cast<char>(ptr[img_index++]);
       }
     }
-  }
+  }*/
+  std::string buffer(cv_img.begin<unsigned char>(), cv_img.end<unsigned char>());
   datum->set_data(buffer);
 }
 #endif  // USE_OPENCV
